@@ -58,20 +58,16 @@ class AutoWorkerCrew:
 
         # Agents
         planner = agents.planner_agent()
-        researcher = agents.research_agent()
-        optimizer = agents.budget_optimizer_agent()
         executor = agents.execution_agent()
 
         # Tasks
         plan_task = tasks.plan_task(planner, self.user_prompt)
-        research_task = tasks.research_task(researcher, self.user_prompt)
-        optimize_task = tasks.optimize_task(optimizer, self.user_prompt)
         execute_task = tasks.execute_task(executor, self.user_prompt)
 
         # Form the crew.
         crew = Crew(
-            agents=[planner, researcher, optimizer, executor],
-            tasks=[plan_task, research_task, optimize_task, execute_task],
+            agents=[planner, executor],
+            tasks=[plan_task, execute_task],
             process=Process.sequential,
             verbose=True,
         )
