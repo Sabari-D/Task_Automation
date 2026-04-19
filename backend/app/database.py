@@ -1,6 +1,6 @@
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
-from sqlalchemy.orm import sessionmaker, declarative_base
-from sqlalchemy import Column, String, Text
+from sqlalchemy.orm import sessionmaker, declarative_base, Session
+from sqlalchemy import Column, String, Text, create_engine
 import os
 from dotenv import load_dotenv
 
@@ -12,14 +12,22 @@ if DATABASE_URL.startswith("postgres://"):
 if DATABASE_URL.startswith("postgresql://") and "asyncpg" not in DATABASE_URL:
     DATABASE_URL = DATABASE_URL.replace("postgresql://", "postgresql+asyncpg://", 1)
 
+# Sync URL for use inside background threads
+SYNC_DATABASE_URL = DATABASE_URL.replace("postgresql+asyncpg://", "postgresql+psycopg2://")
+
+# Async engine (for FastAPI endpoints)
 engine = create_async_engine(DATABASE_URL, echo=False)
 AsyncSessionLocal = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+
+# Sync engine (for background threads)
+sync_engine = create_engine(SYNC_DATABASE_URL, echo=False, pool_pre_ping=True)
+SyncSessionLocal = sessionmaker(bind=sync_engine)
 
 Base = declarative_base()
 
 class TaskRecord(Base):
     __tablename__ = "tasks"
-    
+
     id = Column(String, primary_key=True, index=True)
     prompt = Column(Text, nullable=False)
     status = Column(String, default="pending")
@@ -32,3 +40,13 @@ async def init_db():
 async def get_db():
     async with AsyncSessionLocal() as session:
         yield session
+
+def sync_update_task(task_id: str, status: str, result: str = None):
+    """Thread-safe synchronous DB update for background workers."""
+    with SyncSessionLocal() as session:
+        task = session.get(TaskRecord, task_id)
+        if task:
+            task.status = status
+            if result is not None:
+                task.result = result
+            session.commit()
