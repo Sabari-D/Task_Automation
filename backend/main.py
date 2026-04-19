@@ -53,57 +53,44 @@ async def startup():
 # ── Direct Gemini Call (synchronous — safe in background threads) ────────────
 
 def call_gemini_sync(prompt: str) -> str:
-    """Calls Gemini via direct REST API — no SDK version issues."""
-    import requests
+    """Calls Gemini via litellm — the same library CrewAI uses internally."""
+    from litellm import completion
 
     api_key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
     if not api_key:
         raise ValueError("GEMINI_API_KEY is not set in environment variables.")
 
-    system_prompt = """You are the Auto-Worker Engine — a powerful AI multi-agent system composed of:
-1. Planner Agent: Breaks down complex tasks into structured steps
-2. Research Agent: Gathers data, facts, and relevant information
-3. Budget Optimizer Agent: Ensures plans stay within cost constraints
-4. Executor Agent: Produces the final, polished output
-
-Given the user task, produce a comprehensive response as if all four agents collaborated.
-Format your output in beautiful Markdown with:
-- ## Executive Summary
-- ## Step-by-Step Plan
-- ## Key Research & Findings
-- ## Budget Breakdown (if applicable)
-- ## Final Recommendations
-
-Be specific, practical, and detailed."""
-
+    system_prompt = (
+        "You are the Auto-Worker Engine — a powerful AI multi-agent system with four agents: "
+        "Planner, Researcher, Budget Optimizer, and Executor. "
+        "Given the user task, produce a comprehensive Markdown response as if all four agents collaborated. "
+        "Structure the output with: ## Executive Summary, ## Step-by-Step Plan, "
+        "## Key Research & Findings, ## Budget Breakdown (if applicable), ## Final Recommendations. "
+        "Be specific, practical, and detailed."
+    )
     full_prompt = f"{system_prompt}\n\n**User Task:** {prompt}"
 
-    # Try models in order of preference
-    models = ["gemini-2.0-flash", "gemini-1.5-flash", "gemini-pro"]
-    last_error = None
+    # Try models in order; litellm handles endpoints/auth correctly
+    models = [
+        ("gemini/gemini-2.0-flash", api_key),
+        ("gemini/gemini-1.5-flash", api_key),
+        ("gemini/gemini-pro", api_key),
+    ]
 
-    for model in models:
-        url = (
-            f"https://generativelanguage.googleapis.com/v1beta/models/"
-            f"{model}:generateContent?key={api_key}"
-        )
-        payload = {
-            "contents": [{"parts": [{"text": full_prompt}]}],
-            "generationConfig": {"temperature": 0.4, "maxOutputTokens": 1500}
-        }
+    last_error = None
+    for model_name, key in models:
         try:
-            resp = requests.post(url, json=payload, timeout=30)
-            if resp.status_code == 200:
-                data = resp.json()
-                return data["candidates"][0]["content"]["parts"][0]["text"]
-            elif resp.status_code == 404:
-                last_error = f"Model {model} not found"
-                continue  # try next model
-            else:
-                last_error = f"Gemini API error {resp.status_code}: {resp.text[:200]}"
-                continue
+            os.environ["GEMINI_API_KEY"] = key  # litellm reads from env
+            response = completion(
+                model=model_name,
+                messages=[{"role": "user", "content": full_prompt}],
+                timeout=30,
+                max_tokens=1500,
+            )
+            return response.choices[0].message.content
         except Exception as e:
             last_error = str(e)
+            print(f"[AutoWorker] {model_name} failed: {last_error}")
             continue
 
     raise RuntimeError(f"All Gemini models failed. Last error: {last_error}")
