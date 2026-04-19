@@ -1,0 +1,26 @@
+fastapi
+uvicorn[standard]
+pydantic
+pydantic-settings
+python-dotenv
+websockets
+
+# AI / LLM
+crewai
+crewai-tools
+litellm
+langchain
+langchain-community
+langchain-groq
+langchain-google-genai
+langsmith
+
+# Web Search (free, no API key required)
+duckduckgo-search
+
+# Database / Cache (for Docker infra)
+SQLAlchemy
+asyncpg
+greenlet
+redis
+psycopg2-binary

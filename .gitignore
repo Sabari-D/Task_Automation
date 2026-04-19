@@ -1,0 +1,53 @@
+# Root-level .gitignore for Auto-Worker AI System
+
+# ===== Python =====
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+.Python
+venv/
+.venv/
+env/
+.env/
+dist/
+build/
+*.egg-info/
+*.egg
+.eggs/
+htmlcov/
+.tox/
+.coverage
+coverage.xml
+*.cover
+.pytest_cache/
+.mypy_cache/
+*.log
+
+# ===== Environment (NEVER commit real keys) =====
+.env
+!.env.example
+
+# ===== Node / Next.js =====
+node_modules/
+.next/
+out/
+.npm
+*.tsbuildinfo
+next-env.d.ts
+
+# ===== IDE =====
+.vscode/
+.idea/
+*.swp
+*.swo
+*.DS_Store
+Thumbs.db
+
+# ===== Docker =====
+*.override.yml
+
+# ===== Misc =====
+*.bak
+*.tmp
