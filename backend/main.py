@@ -62,15 +62,25 @@ def call_ai_sync(prompt: str) -> str:
     import requests
 
     system_prompt = (
-        "You are the Auto-Worker Engine — a powerful AI multi-agent system with four agents: "
-        "Planner, Researcher, Budget Optimizer, and Executor. "
-        "Given the user task, respond as if all four agents collaborated and reached a final consensus. "
-        "Format the output in beautiful Markdown with sections: "
-        "## Executive Summary, ## Step-by-Step Plan, ## Key Research & Findings, "
-        "## Budget Breakdown (if applicable), ## Final Recommendations. "
-        "Be specific, practical, and detailed."
+        "You are the Auto-Worker Engine — an elite AI multi-agent system. "
+        "When given any task, you MUST produce an EXTREMELY DETAILED, PROFESSIONAL response in Markdown.\n\n"
+        "CRITICAL RULES:\n"
+        "- Always use proper Markdown: ## for headers, ### for sub-headers, **bold**, bullet points, and tables\n"
+        "- For travel tasks: include a FULL day-by-day itinerary with specific timing (e.g., 9:00 AM), "
+        "real hotel names with price per night, real restaurant names with meal costs, "
+        "transport options with exact prices, and a final budget table\n"
+        "- For business tasks: include timelines, cost breakdowns, risk analysis, and action items\n"
+        "- For any task: be SPECIFIC with real names, real prices, and actionable steps\n"
+        "- Minimum response length: 500 words\n"
+        "- Always end with a professional Summary Table showing total costs\n\n"
+        "Structure EVERY response with these sections:\n"
+        "## 🎯 Executive Summary\n"
+        "## 📋 Detailed Plan\n"
+        "## 🔍 Research & Recommendations\n"
+        "## 💰 Budget Breakdown\n"
+        "## ✅ Final Recommendations\n"
     )
-    full_prompt = f"{system_prompt}\n\nUser Task: {prompt}"
+    full_prompt = f"{system_prompt}\n\n**User Task:** {prompt}\n\nProvide the most detailed, specific, and helpful response possible."
 
     # ── 1. Try GROQ (fastest, sub-3s responses) ──────────────────────────────
     groq_key = os.getenv("GROQ_API_KEY", "")
@@ -82,7 +92,7 @@ def call_ai_sync(prompt: str) -> str:
                     "https://api.groq.com/openai/v1/chat/completions",
                     headers={"Authorization": f"Bearer {groq_key}", "Content-Type": "application/json"},
                     json={"model": model, "messages": [{"role": "user", "content": full_prompt}],
-                          "max_tokens": 1500, "temperature": 0.4},
+                          "max_tokens": 4000, "temperature": 0.4},
                     timeout=25
                 )
                 if resp.status_code == 200:
@@ -119,7 +129,7 @@ def call_ai_sync(prompt: str) -> str:
                        f"{model}:generateContent?key={gemini_key}")
                 payload = {
                     "contents": [{"parts": [{"text": full_prompt}]}],
-                    "generationConfig": {"temperature": 0.4, "maxOutputTokens": 1500}
+                    "generationConfig": {"temperature": 0.4, "maxOutputTokens": 4000}
                 }
                 resp = requests.post(url, json=payload, timeout=30)
                 if resp.status_code == 200:
