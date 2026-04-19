@@ -53,26 +53,20 @@ async def startup():
 # ── Direct Gemini Call (synchronous — safe in background threads) ────────────
 
 def call_gemini_sync(prompt: str) -> str:
-    """Calls Gemini 1.5 Flash directly. Returns the markdown result string."""
-    import google.generativeai as genai
+    """Calls Gemini via direct REST API — no SDK version issues."""
+    import requests
 
     api_key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
     if not api_key:
-        raise ValueError("GEMINI_API_KEY is not configured in environment variables.")
-
-    genai.configure(api_key=api_key)
-    model = genai.GenerativeModel(
-        model_name="gemini-pro",
-        generation_config={"temperature": 0.4, "max_output_tokens": 1500},
-    )
+        raise ValueError("GEMINI_API_KEY is not set in environment variables.")
 
     system_prompt = """You are the Auto-Worker Engine — a powerful AI multi-agent system composed of:
 1. Planner Agent: Breaks down complex tasks into structured steps
-2. Research Agent: Gathers data, facts, and relevant information  
+2. Research Agent: Gathers data, facts, and relevant information
 3. Budget Optimizer Agent: Ensures plans stay within cost constraints
 4. Executor Agent: Produces the final, polished output
 
-Given the user's task below, produce a comprehensive response as if all four agents collaborated.
+Given the user task, produce a comprehensive response as if all four agents collaborated.
 Format your output in beautiful Markdown with:
 - ## Executive Summary
 - ## Step-by-Step Plan
@@ -82,8 +76,37 @@ Format your output in beautiful Markdown with:
 
 Be specific, practical, and detailed."""
 
-    response = model.generate_content(f"{system_prompt}\n\n**User Task:** {prompt}")
-    return response.text
+    full_prompt = f"{system_prompt}\n\n**User Task:** {prompt}"
+
+    # Try models in order of preference
+    models = ["gemini-2.0-flash", "gemini-1.5-flash", "gemini-pro"]
+    last_error = None
+
+    for model in models:
+        url = (
+            f"https://generativelanguage.googleapis.com/v1beta/models/"
+            f"{model}:generateContent?key={api_key}"
+        )
+        payload = {
+            "contents": [{"parts": [{"text": full_prompt}]}],
+            "generationConfig": {"temperature": 0.4, "maxOutputTokens": 1500}
+        }
+        try:
+            resp = requests.post(url, json=payload, timeout=30)
+            if resp.status_code == 200:
+                data = resp.json()
+                return data["candidates"][0]["content"]["parts"][0]["text"]
+            elif resp.status_code == 404:
+                last_error = f"Model {model} not found"
+                continue  # try next model
+            else:
+                last_error = f"Gemini API error {resp.status_code}: {resp.text[:200]}"
+                continue
+        except Exception as e:
+            last_error = str(e)
+            continue
+
+    raise RuntimeError(f"All Gemini models failed. Last error: {last_error}")
 
 
 def background_task_runner(task_id: str, prompt: str):
