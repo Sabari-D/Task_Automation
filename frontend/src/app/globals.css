@@ -1,0 +1,88 @@
+@import "tailwindcss";
+
+:root {
+  --background: #0f172a;
+  /* Slate 900 */
+  --foreground: #f8fafc;
+  /* Slate 50 */
+
+  --primary: #8b5cf6;
+  /* Violet 500 */
+  --primary-glow: rgba(139, 92, 246, 0.5);
+  --secondary: #3b82f6;
+  /* Blue 500 */
+
+  --surface: rgba(30, 41, 59, 0.7);
+  /* Slate 800 with opacity */
+  --surface-border: rgba(255, 255, 255, 0.1);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-primary: var(--primary);
+  --color-secondary: var(--secondary);
+  --color-surface: var(--surface);
+  --color-surface-border: var(--surface-border);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  min-height: 100vh;
+  background-image:
+    radial-gradient(circle at 15% 50%, var(--primary-glow) 0%, transparent 50%),
+    radial-gradient(circle at 85% 30%, rgba(59, 130, 246, 0.3) 0%, transparent 50%);
+  background-attachment: fixed;
+  font-family: 'Inter', sans-serif;
+  overflow-x: hidden;
+}
+
+/* Glassmorphism Utilities */
+@utility glass {
+  background: var(--surface);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--surface-border);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+}
+
+@utility glass-card {
+  @apply glass rounded-2xl p-6 transition-all duration-300 hover:border-primary/50;
+}
+
+/* Animations */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@utility animate-fade-in {
+  animation: fadeIn 0.5s ease-out forwards;
+}
+
+@keyframes pulse-border {
+  0% {
+    border-color: var(--surface-border);
+  }
+
+  50% {
+    border-color: var(--primary);
+    box-shadow: 0 0 15px var(--primary-glow);
+  }
+
+  100% {
+    border-color: var(--surface-border);
+  }
+}
+
+@utility animate-pulse-border {
+  animation: pulse-border 2s infinite;
+}
