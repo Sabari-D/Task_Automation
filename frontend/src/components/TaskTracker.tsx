@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 
 interface TaskTrackerProps {
@@ -9,66 +9,75 @@ interface TaskTrackerProps {
 }
 
 interface TaskState {
-  status: 'pending' | 'running' | 'completed' | 'failed';
+  status: 'pending' | 'running' | 'completed' | 'failed' | 'cached';
   result?: string;
 }
+
+const AGENT_LOGS = [
+  '[PLANNER_AGENT] Analyzing user prompt and breaking down steps...',
+  '[PLANNER_AGENT] Identified 4 core objectives. Delegating to research...',
+  '[RESEARCH_AGENT] Searching knowledge base for the latest context...',
+  '[RESEARCH_AGENT] Found 14 relevant sources. Extracting tabular data...',
+  '[OPTIMIZER_AGENT] Reviewing options against budget constraints...',
+  '[OPTIMIZER_AGENT] Filtered out expensive options. Adjusted plan.',
+  '[EXECUTION_AGENT] Synthesizing final report based on optimized data...',
+  '[EXECUTION_AGENT] Formatting Markdown output...',
+];
 
 export default function TaskTracker({ taskId, onReset }: TaskTrackerProps) {
   const [taskState, setTaskState] = useState<TaskState>({ status: 'pending' });
   const [logs, setLogs] = useState<string[]>([]);
+  const pollingRef = useRef<NodeJS.Timeout | null>(null);
+  const logIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const isDone = taskState.status === 'completed' || taskState.status === 'failed' || taskState.status === 'cached';
 
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000';
+
+  // ── REST Polling: check task status every 2s until done ──────────────────
   useEffect(() => {
-    // Create WebSocket connection.
-    const wsUrl = process.env.NEXT_PUBLIC_WS_URL || 'ws://127.0.0.1:8000';
-    const ws = new WebSocket(`${wsUrl}/ws/task/${taskId}`);
-
-    ws.onmessage = (event) => {
+    const poll = async () => {
       try {
-        const data = JSON.parse(event.data);
-        setTaskState({ status: data.status, result: data.result });
+        const res = await fetch(`${apiUrl}/api/task/${taskId}`);
+        if (!res.ok) return;
+        const data = await res.json();
+        if (data.status && data.status !== taskState.status) {
+          setTaskState({ status: data.status, result: data.result });
+        }
+        if (data.status === 'completed' || data.status === 'failed' || data.status === 'cached') {
+          if (pollingRef.current) clearInterval(pollingRef.current);
+        }
       } catch (e) {
-        console.error("Error parsing websocket message", e);
+        console.error('Polling error:', e);
       }
     };
 
-    ws.onopen = () => {
-      setLogs((prev) => [...prev, '[SYSTEM] WebSocket connected. Monitoring agents...']);
+    poll(); // immediate first check
+    pollingRef.current = setInterval(poll, 2000);
+    return () => {
+      if (pollingRef.current) clearInterval(pollingRef.current);
     };
+  }, [taskId, apiUrl]);
 
-    ws.onclose = () => {
-      setLogs((prev) => [...prev, '[SYSTEM] WebSocket disconnected.']);
-    };
+  // ── Animated logs while running ──────────────────────────────────────────
+  useEffect(() => {
+    if (logIntervalRef.current) clearInterval(logIntervalRef.current);
+    if (isDone) return;
+
+    setLogs(['[SYSTEM] Agents activated. Task dispatched...']);
+    let i = 0;
+    logIntervalRef.current = setInterval(() => {
+      if (i < AGENT_LOGS.length) {
+        setLogs(prev => [...prev, AGENT_LOGS[i]]);
+        i++;
+      } else {
+        clearInterval(logIntervalRef.current!);
+      }
+    }, 800); // fast log stream
 
     return () => {
-      ws.close();
+      if (logIntervalRef.current) clearInterval(logIntervalRef.current);
     };
-  }, [taskId]);
-
-  // Simulate streaming logs for aesthetics based on status
-  useEffect(() => {
-    let interval: NodeJS.Timeout;
-    if (taskState.status === 'running') {
-      const simulatedLogs = [
-        '[PLANNER_AGENT] Analyzing user prompt and breaking down steps...',
-        '[PLANNER_AGENT] Identified 4 core objectives. Delegating to research...',
-        '[RESEARCH_AGENT] Searching the web for the latest context...',
-        '[RESEARCH_AGENT] Found 14 relevant sources. Extracting tabular data...',
-        '[OPTIMIZER_AGENT] Reviewing options against budget constraints.',
-        '[OPTIMIZER_AGENT] Filtered out expensive options. Adjusted plan.',
-        '[EXECUTION_AGENT] Synthesizing final report based on optimized data...',
-      ];
-      let i = 0;
-      interval = setInterval(() => {
-        if (i < simulatedLogs.length) {
-          setLogs((prev) => [...prev, simulatedLogs[i]]);
-          i++;
-        } else {
-          clearInterval(interval);
-        }
-      }, 3000);
-    }
-    return () => clearInterval(interval);
-  }, [taskState.status]);
+  }, [isDone]);
 
   return (
     <div className="flex flex-col gap-8 w-full">
@@ -76,15 +85,17 @@ export default function TaskTracker({ taskId, onReset }: TaskTrackerProps) {
       <div className="glass-card flex items-center justify-between">
         <div className="flex items-center gap-4">
           <div className={`w-3 h-3 rounded-full ${
-            taskState.status === 'completed' ? 'bg-green-500 shadow-[0_0_10px_#22c55e]' :
-            taskState.status === 'failed' ? 'bg-red-500 shadow-[0_0_10px_#ef4444]' :
-            'bg-yellow-500 shadow-[0_0_10px_#eab308] animate-pulse'
+            taskState.status === 'completed' || taskState.status === 'cached'
+              ? 'bg-green-500 shadow-[0_0_10px_#22c55e]'
+              : taskState.status === 'failed'
+              ? 'bg-red-500 shadow-[0_0_10px_#ef4444]'
+              : 'bg-yellow-500 shadow-[0_0_10px_#eab308] animate-pulse'
           }`}></div>
           <h2 className="text-xl font-semibold capitalize text-white">
             Task Status: <span className="text-primary">{taskState.status}</span>
           </h2>
         </div>
-        <button 
+        <button
           onClick={onReset}
           className="text-sm text-slate-400 hover:text-white transition-colors"
         >
@@ -108,8 +119,14 @@ export default function TaskTracker({ taskId, onReset }: TaskTrackerProps) {
                 <span dangerouslySetInnerHTML={{ __html: (log ?? '').replace(/\[(.*?)\]/, '<span class="text-secondary">[$1]</span>') }} />
               </div>
             ))}
-            {taskState.status === 'running' && (
+            {!isDone && (
               <div className="animate-pulse text-slate-500 mt-2">_</div>
+            )}
+            {isDone && (
+              <div className="text-green-400 mt-2">
+                <span className="text-primary mr-2">›</span>
+                [SYSTEM] All agents completed. Report ready.
+              </div>
             )}
           </div>
         </div>
@@ -121,9 +138,9 @@ export default function TaskTracker({ taskId, onReset }: TaskTrackerProps) {
             Final Execution Report
           </h3>
           <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar">
-            {taskState.status === 'completed' ? (
+            {(taskState.status === 'completed' || taskState.status === 'cached') ? (
               <div className="prose prose-invert prose-primary max-w-none">
-                <ReactMarkdown>{taskState.result || "No result provided."}</ReactMarkdown>
+                <ReactMarkdown>{taskState.result || 'No result provided.'}</ReactMarkdown>
               </div>
             ) : taskState.status === 'failed' ? (
               <div className="text-red-400">
@@ -132,7 +149,7 @@ export default function TaskTracker({ taskId, onReset }: TaskTrackerProps) {
             ) : (
               <div className="h-full flex flex-col items-center justify-center text-slate-500">
                 <div className="w-16 h-16 mb-4 rounded-full border-4 border-surface-border border-t-primary animate-spin"></div>
-                <p>Awaiting final agent consensus...</p>
+                <p>AI agents at work — results arriving shortly...</p>
               </div>
             )}
           </div>

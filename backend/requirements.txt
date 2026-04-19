@@ -9,6 +9,7 @@ websockets
 crewai
 crewai-tools
 litellm
+google-generativeai
 langchain
 langchain-community
 langchain-groq

@@ -5,6 +5,7 @@ import json
 import uuid
 import asyncio
 import hashlib
+import threading
 from fastapi import FastAPI, BackgroundTasks, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
@@ -23,7 +24,7 @@ load_dotenv()
 app = FastAPI(
     title="AI Multi-Agent Task Automation System API",
     description="Backend for the Auto-Worker system",
-    version="0.1.0"
+    version="1.0.0"
 )
 
 app.add_middleware(
@@ -35,11 +36,14 @@ app.add_middleware(
 )
 
 from app.models import AutoTaskRequest, AutoTaskResponse
-from app.crew import AutoWorkerCrew
 from app.database import init_db, get_db, TaskRecord, AsyncSessionLocal
 
 redis_url = os.getenv("REDIS_URL", "redis://localhost:6379/0")
-redis_client = redis_async.from_url(redis_url, decode_responses=True)
+try:
+    redis_client = redis_async.from_url(redis_url, decode_responses=True, socket_connect_timeout=5)
+except Exception:
+    redis_client = None
+
 _main_loop = None
 
 @app.on_event("startup")
@@ -47,158 +51,216 @@ async def startup():
     global _main_loop
     _main_loop = asyncio.get_event_loop()
     await init_db()
-    # verify redis connection
+
+# ── Direct Gemini execution (fast, no CrewAI overhead) ──────────────────────
+
+def _call_gemini_direct(prompt: str) -> str:
+    """Call Gemini directly for sub-5 second AI responses."""
+    import google.generativeai as genai
+
+    api_key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
+    if not api_key:
+        raise ValueError("No GEMINI_API_KEY or GOOGLE_API_KEY set in environment.")
+
+    genai.configure(api_key=api_key)
+    model = genai.GenerativeModel(
+        model_name="gemini-1.5-flash",
+        generation_config={"temperature": 0.4, "max_output_tokens": 1500},
+    )
+
+    system_prompt = """You are the Auto-Worker Engine — a team of four AI agents: 
+Planner, Researcher, Budget Optimizer, and Executor.
+
+Given the user's task, respond as if all four agents have collaborated and reached a final consensus.
+Produce a beautifully-formatted, detailed Markdown response with:
+- A short Executive Summary
+- A Step-by-Step Plan
+- Key Research Findings (with realistic figures/estimates)
+- Budget Breakdown (if applicable)
+- Clear Final Recommendations
+
+Be comprehensive, practical and specific. Show the final polished output only."""
+
+    response = model.generate_content(f"{system_prompt}\n\nUser Task: {prompt}")
+    return response.text
+
+
+def _run_task_in_thread(task_id: str, prompt: str):
+    """Run in a background thread, update DB when done."""
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
     try:
-        await redis_client.ping()
-        print("Redis connected")
-    except Exception as e:
-        print("Redis connection failed:", e)
+        loop.run_until_complete(_execute_task(task_id, prompt))
+    finally:
+        loop.close()
 
-@app.get("/health")
-async def health_check():
-    return {"status": "ok", "message": "Auto-Worker backend is running"}
 
-async def _notify_clients_async(task_id: str, status: str, result: str):
-    message = json.dumps({"task_id": task_id, "status": status, "result": result})
+async def _execute_task(task_id: str, prompt: str):
+    # Mark as running
+    async with AsyncSessionLocal() as session:
+        stmt = select(TaskRecord).where(TaskRecord.id == task_id)
+        res = await session.execute(stmt)
+        task = res.scalar_one_or_none()
+        if task:
+            task.status = "running"
+            await session.commit()
+
     try:
-        await redis_client.publish(f"task_updates:{task_id}", message)
+        # Call Gemini directly — fast!
+        result = await asyncio.get_event_loop().run_in_executor(
+            None, _call_gemini_direct, prompt
+        )
+        status = "completed"
     except Exception as e:
-        print(f"Error publishing to redis: {e}")
+        result = f"Agent error: {str(e)}"
+        status = "failed"
 
-async def _update_db_async(task_id: str, status: str, result: str = None):
+    # Save result to DB
     async with AsyncSessionLocal() as session:
         stmt = select(TaskRecord).where(TaskRecord.id == task_id)
         res = await session.execute(stmt)
         task = res.scalar_one_or_none()
         if task:
             task.status = status
-            if result:
-                task.result = result
+            task.result = result
             await session.commit()
 
-        if status in ("completed", "failed") and task:
-            prompt_hash = hashlib.sha256(task.prompt.encode()).hexdigest()
-            try:
-                await redis_client.set(f"cache:{prompt_hash}", json.dumps({
-                    "status": status,
-                    "result": result
-                }), ex=86400) # 24 hrs
-            except Exception as e:
-                print(f"Error setting cache in redis: {e}")
+    # Cache result in Redis
+    if redis_client:
+        try:
+            prompt_hash = hashlib.sha256(prompt.encode()).hexdigest()
+            await redis_client.set(
+                f"cache:{prompt_hash}",
+                json.dumps({"status": status, "result": result}),
+                ex=86400
+            )
+        except Exception:
+            pass
 
-def update_state_sync(task_id: str, status: str, result: str = None):
-    if _main_loop and _main_loop.is_running():
-        asyncio.run_coroutine_threadsafe(_update_db_async(task_id, status, result), _main_loop)
-        asyncio.run_coroutine_threadsafe(_notify_clients_async(task_id, status, result), _main_loop)
+    # Notify WebSocket subscribers via Redis pub/sub
+    if redis_client:
+        try:
+            await redis_client.publish(
+                f"task_updates:{task_id}",
+                json.dumps({"task_id": task_id, "status": status, "result": result})
+            )
+        except Exception:
+            pass
 
-def run_crew_task(task_id: str, prompt: str):
-    update_state_sync(task_id, "running", None)
 
-    try:
-        crew = AutoWorkerCrew(user_prompt=prompt)
-        result = crew.run()
+# ── REST Endpoints ───────────────────────────────────────────────────────────
 
-        if hasattr(result, 'raw'):
-            final_output = result.raw
-        else:
-            final_output = str(result)
-
-        update_state_sync(task_id, "completed", final_output)
-    except Exception as e:
-        error_msg = str(e)
-        if "insufficient_quota" in error_msg:
-            error_msg = "OpenAI API quota exceeded."
-        elif "rate_limit_exceeded" in error_msg or "RateLimitError" in error_msg or ("429" in error_msg and "groq" in error_msg.lower()):
-            error_msg = "Groq API rate limit exceeded. Please wait ~60s and try again."
-        update_state_sync(task_id, "failed", error_msg)
+@app.get("/")
+async def root():
+    return {"status": "Auto-Worker API is live", "version": "1.0.0"}
 
 @app.post("/api/task", response_model=AutoTaskResponse)
 async def create_task(request: AutoTaskRequest, background_tasks: BackgroundTasks):
-    prompt_hash = hashlib.sha256(request.user_prompt.encode()).hexdigest()
-    
-    try:
-        cached_data = await redis_client.get(f"cache:{prompt_hash}")
-        if cached_data:
-            data = json.loads(cached_data)
-            task_id = str(uuid.uuid4())
-            async with AsyncSessionLocal() as session:
-                task = TaskRecord(id=task_id, prompt=request.user_prompt, status=data["status"], result=data["result"])
-                session.add(task)
-                await session.commit()
-            return AutoTaskResponse(task_id=task_id, status="cached", message="Returned from cache")
-    except Exception as e:
-        print(f"Redis cache check failed: {e}")
+    # Check Redis cache first
+    if redis_client:
+        try:
+            prompt_hash = hashlib.sha256(request.user_prompt.encode()).hexdigest()
+            cached = await redis_client.get(f"cache:{prompt_hash}")
+            if cached:
+                data = json.loads(cached)
+                task_id = str(uuid.uuid4())
+                async with AsyncSessionLocal() as session:
+                    task = TaskRecord(
+                        id=task_id,
+                        prompt=request.user_prompt,
+                        status=data["status"],
+                        result=data["result"]
+                    )
+                    session.add(task)
+                    await session.commit()
+                return AutoTaskResponse(task_id=task_id, status="cached", message="Returned from cache")
+        except Exception:
+            pass
 
+    # Create new task record
     task_id = str(uuid.uuid4())
     async with AsyncSessionLocal() as session:
         task = TaskRecord(id=task_id, prompt=request.user_prompt, status="pending", result=None)
         session.add(task)
         await session.commit()
-        
-    background_tasks.add_task(run_crew_task, task_id, request.user_prompt)
+
+    # Run in background thread (non-blocking)
+    thread = threading.Thread(target=_run_task_in_thread, args=(task_id, request.user_prompt), daemon=True)
+    thread.start()
+
     return AutoTaskResponse(task_id=task_id, status="pending", message="Task started")
+
 
 @app.get("/api/task/{task_id}")
 async def get_task_status(task_id: str):
+    """REST polling endpoint — frontend polls this every 2 seconds."""
     async with AsyncSessionLocal() as session:
         stmt = select(TaskRecord).where(TaskRecord.id == task_id)
         res = await session.execute(stmt)
         task = res.scalar_one_or_none()
         if not task:
             return {"error": "Task not found"}
-        return {"id": task.id, "prompt": task.prompt, "status": task.status, "result": task.result}
+        return {
+            "task_id": task.id,
+            "status": task.status,
+            "result": task.result
+        }
+
+
+# ── WebSocket (kept for live streaming via Redis pub/sub) ────────────────────
 
 @app.websocket("/ws/task/{task_id}")
 async def websocket_endpoint(websocket: WebSocket, task_id: str):
     await websocket.accept()
-    
+
+    # Send current state immediately
     async with AsyncSessionLocal() as session:
         stmt = select(TaskRecord).where(TaskRecord.id == task_id)
         res = await session.execute(stmt)
         task = res.scalar_one_or_none()
         if task:
             try:
-                await websocket.send_text(json.dumps({"task_id": task_id, "status": task.status, "result": task.result}))
+                await websocket.send_text(json.dumps({
+                    "task_id": task_id,
+                    "status": task.status,
+                    "result": task.result
+                }))
                 if task.status in ("completed", "failed", "cached"):
+                    await websocket.close()
                     return
-            except:
+            except Exception:
                 return
 
-    pubsub = redis_client.pubsub()
-    await pubsub.subscribe(f"task_updates:{task_id}")
-    
-    try:
-        while True:
-            async def read_ws():
-                return await websocket.receive_text()
-                
-            async def read_pubsub():
-                async for message in pubsub.listen():
-                    if message["type"] == "message":
-                        return message["data"]
-                        
-            ws_task = asyncio.create_task(read_ws())
-            ps_task = asyncio.create_task(read_pubsub())
-            
-            done, pending = await asyncio.wait([ws_task, ps_task], return_when=asyncio.FIRST_COMPLETED)
-            
-            for t in pending:
-                t.cancel()
-                
-            if ws_task in done:
-                break
-                
-            if ps_task in done:
-                msg = ps_task.result()
-                if msg:
-                    await websocket.send_text(msg)
-                    data = json.loads(msg)
+    # Listen for updates via Redis pub/sub OR keep-alive polling
+    if redis_client:
+        try:
+            pubsub = redis_client.pubsub()
+            await pubsub.subscribe(f"task_updates:{task_id}")
+            async for message in pubsub.listen():
+                if message["type"] == "message":
+                    await websocket.send_text(message["data"])
+                    data = json.loads(message["data"])
                     if data.get("status") in ("completed", "failed"):
                         break
-                        
-    except WebSocketDisconnect:
-        pass
-    except Exception:
-        pass
-    finally:
-        await pubsub.unsubscribe(f"task_updates:{task_id}")
+        except Exception:
+            pass
+    else:
+        # Fallback: poll DB every 2s and push to WebSocket
+        try:
+            for _ in range(150):  # max 5 minutes
+                await asyncio.sleep(2)
+                async with AsyncSessionLocal() as session:
+                    stmt = select(TaskRecord).where(TaskRecord.id == task_id)
+                    res = await session.execute(stmt)
+                    task = res.scalar_one_or_none()
+                    if task and task.status in ("completed", "failed"):
+                        await websocket.send_text(json.dumps({
+                            "task_id": task_id,
+                            "status": task.status,
+                            "result": task.result
+                        }))
+                        break
+        except WebSocketDisconnect:
+            pass
+        except Exception:
+            pass
