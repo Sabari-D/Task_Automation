@@ -69,13 +69,10 @@ class AutoWorkerCrew:
         execute_task = tasks.execute_task(executor, self.user_prompt)
 
         # Form the crew.
-        # step_callback adds a 15 s cooling delay between agents to prevent
-        # hitting the Groq free-tier TPM limit (6 000 TPM for llama-3.1-8b-instant).
         crew = Crew(
             agents=[planner, researcher, optimizer, executor],
             tasks=[plan_task, research_task, optimize_task, execute_task],
             process=Process.sequential,
-            step_callback=_step_delay,
             verbose=True,
         )
 
