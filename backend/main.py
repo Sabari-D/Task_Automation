@@ -62,7 +62,7 @@ def call_gemini_sync(prompt: str) -> str:
 
     genai.configure(api_key=api_key)
     model = genai.GenerativeModel(
-        model_name="gemini-1.5-flash",
+        model_name="gemini-pro",
         generation_config={"temperature": 0.4, "max_output_tokens": 1500},
     )
 
