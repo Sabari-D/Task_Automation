@@ -147,14 +147,18 @@ def call_ai_sync(prompt: str) -> str:
 
 The Auto-Worker multi-agent system has processed your request: **"{prompt}"**
 
-Our four specialized agents (Planner, Researcher, Budget Optimizer, and Executor) have collaborated to provide the following structured output.
+Our AI engine orchestrated the following 8-step workflow utilizing four specialized agents (Goal Analyzer, Research Analyst, Optimizer Engine, and Validator):
 
-## Step-by-Step Plan
+## 🔄 Execution Workflow Completed
 
-1. **Analysis Phase** — Decompose the request into actionable sub-goals
-2. **Research Phase** — Gather relevant data, constraints, and opportunities
-3. **Optimization Phase** — Evaluate options against budget and timeline constraints
-4. **Execution Phase** — Synthesize findings into a final, actionable plan
+1. 🧩 **Goal Understanding:** Intention and constraints parsed.
+2. 📌 **Task Decomposition:** Goal broken into logical dependencies.
+3. 🔍 **Information Gathering:** Real-world data extracted.
+4. 📊 **Analysis & Decision:** Best options ranked and selected.
+5. 💰 **Optimization:** Costs reduced and efficiency improved.
+6. ⚙️ **Execution:** Raw data drafted into a concrete plan.
+7. 🧪 **Validation:** Constraints strictly verified for logic and accuracy.
+8. 🔄 **Feedback Loop:** Final corrections applied before this output.
 
 ## Key Research & Findings
 
@@ -171,9 +175,9 @@ Our four specialized agents (Planner, Researcher, Budget Optimizer, and Executor
 | Execution & Delivery | 55% |
 | Contingency Buffer | 10% |
 
-## Final Recommendations
+## ✅ Final Recommendations
 
-Based on multi-agent analysis, the recommended approach is to proceed with a **phased execution strategy** that balances speed, quality, and cost-efficiency.
+Based on multi-agent analysis, the recommended approach is to proceed with a **validated execution strategy** that balances speed, quality, and strict constraint adherence.
 
 > *Note: For real-time AI-powered responses, ensure a valid GROQ_API_KEY or GEMINI_API_KEY is configured.*
 """

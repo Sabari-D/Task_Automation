@@ -57,19 +57,24 @@ class AutoWorkerCrew:
         tasks = AutoWorkerTasks()
 
         # Agents
-        planner = agents.planner_agent()
-        executor = agents.execution_agent()
+        goal_analyzer = agents.goal_analyzer_agent()
+        researcher = agents.research_analysis_agent()
+        optimizer = agents.optimizer_execution_agent()
+        validator = agents.validation_specialist_agent()
 
         # Tasks
-        plan_task = tasks.plan_task(planner, self.user_prompt)
-        execute_task = tasks.execute_task(executor, self.user_prompt)
+        task1 = tasks.goal_and_decompose_task(goal_analyzer, self.user_prompt)
+        task2 = tasks.research_and_analyze_task(researcher, self.user_prompt)
+        task3 = tasks.optimize_and_execute_task(optimizer, self.user_prompt)
+        task4 = tasks.validate_and_feedback_task(validator, self.user_prompt)
 
         # Form the crew.
         crew = Crew(
-            agents=[planner, executor],
-            tasks=[plan_task, execute_task],
+            agents=[goal_analyzer, researcher, optimizer, validator],
+            tasks=[task1, task2, task3, task4],
             process=Process.sequential,
             verbose=True,
+            step_callback=_step_delay
         )
 
         # Kickoff with automatic retry on rate-limit errors

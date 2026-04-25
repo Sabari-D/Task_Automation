@@ -14,14 +14,14 @@ interface TaskState {
 }
 
 const AGENT_LOGS = [
-  '[PLANNER_AGENT] Analyzing user prompt and breaking down steps...',
-  '[PLANNER_AGENT] Identified 4 core objectives. Delegating to research...',
-  '[RESEARCH_AGENT] Searching knowledge base for the latest context...',
-  '[RESEARCH_AGENT] Found 14 relevant sources. Extracting tabular data...',
-  '[OPTIMIZER_AGENT] Reviewing options against budget constraints...',
-  '[OPTIMIZER_AGENT] Filtered out expensive options. Adjusted plan.',
-  '[EXECUTION_AGENT] Synthesizing final report based on optimized data...',
-  '[EXECUTION_AGENT] Formatting Markdown output...',
+  '[GOAL_ANALYZER] 🧩 Parsing user intent and constraints...',
+  '[GOAL_ANALYZER] 📌 Decomposing goal into logical steps...',
+  '[RESEARCH_ANALYST] 🔍 Searching web and extracting real-world data...',
+  '[RESEARCH_ANALYST] 📊 Comparing options and ranking best choices...',
+  '[OPTIMIZER_ENGINE] 💰 Reducing costs and improving efficiency...',
+  '[OPTIMIZER_ENGINE] ⚙️ Combining data into execution draft...',
+  '[VALIDATOR_AGENT] 🧪 Verifying constraints and checking logic...',
+  '[VALIDATOR_AGENT] 🔄 Feedback loop complete. Generating final output...',
 ];
 
 export default function TaskTracker({ taskId, onReset }: TaskTrackerProps) {

@@ -1,36 +1,23 @@
 from crewai import Agent, LLM
 import os
 
-
-# CrewAI uses LiteLLM under the hood.
-# Groq free-tier TPM limits (tokens per minute) — check your actual limit at:
-#   https://console.groq.com/settings/limits
-#   llama-3.1-8b-instant → typical 6,000–20,000 TPM depending on tier
-#   gemma2-9b-it         → typical 15,000 TPM
-# We keep max_tokens LOW (512) to avoid hitting TPM limits with 4 sequential agents.
-# The step_callback in crew.py adds a 15s cooldown between each agent step.
-# Fallback to Gemini if GROQ_API_KEY is not set.
-
 def _valid_key(env_var: str) -> bool:
     """Return True if the env var is set to a real (non-placeholder) value."""
     val = os.getenv(env_var, "")
     return bool(val) and not val.startswith("your_")
 
-
 def get_llm() -> LLM:
     """Return a crewai.LLM object with retry/timeout settings.
-
-    max_tokens is intentionally limited to 512 to stay within
-    the 6,000 TPM free-tier limit across 4 sequential agents.
+    max_tokens is intentionally limited to 512 to stay within TPM limits.
     """
     if _valid_key("GROQ_API_KEY"):
         return LLM(
             model="groq/llama-3.1-8b-instant",
             api_key=os.getenv("GROQ_API_KEY"),
             temperature=0.3,
-            max_tokens=512,   # Keep low to respect 6k TPM free-tier limit
+            max_tokens=512,
             timeout=90,
-            max_retries=5,    # LiteLLM will retry on 429 automatically
+            max_retries=5,
         )
     elif _valid_key("GEMINI_API_KEY") or _valid_key("GOOGLE_API_KEY"):
         return LLM(
@@ -41,7 +28,6 @@ def get_llm() -> LLM:
             timeout=90,
             max_retries=5,
         )
-    # Default fallback (requires OPENAI_API_KEY)
     return LLM(
         model="gpt-4o-mini",
         temperature=0.3,
@@ -53,56 +39,57 @@ def get_llm() -> LLM:
 
 class AutoWorkerAgents():
 
-    def planner_agent(self):
+    def goal_analyzer_agent(self):
         return Agent(
-            role='Strategic Task Planner',
-            goal='Analyze the user request and break it down into a highly structured, logical step-by-step sequential plan.',
+            role='Goal Analyzer and Task Decomposer',
+            goal='Understand the user intent, identify all constraints, and deeply decompose the goal into structured logical steps.',
             backstory=(
-                'You are an expert project manager and strategic thinker. '
-                'You excel at taking ambiguous or complex user requests and breaking them into clear, '
-                'actionable, and logical steps that other specialized agents can follow to achieve the ultimate goal.'
+                'You are an expert cognitive parser. When given a problem, you execute Step 1 (Goal Understanding) '
+                'by identifying the true intent and constraints. Then, you execute Step 2 (Task Decomposition) '
+                'by breaking the problem down into precise, logical dependencies. You do not abstract; you create real action plans.'
             ),
             verbose=True,
             allow_delegation=False,
             llm=get_llm(),
         )
 
-    def research_agent(self):
+    def research_analysis_agent(self):
         return Agent(
-            role='Expert Internet Researcher',
-            goal='Gather the most up-to-date, accurate, and comprehensive information required to execute the plan.',
+            role='Information Gatherer and Data Analyst',
+            goal='Search real-world data sources, extract useful information, filter noise, compare options, and rank them.',
             backstory=(
-                'You are a relentless researcher capable of digging into the depths of the internet to find '
-                'precise data, prices, reviews, and context needed. You synthesize the findings clearly. '
-                'When you cannot browse the internet, use your training knowledge to provide best estimates.'
+                'You are a relentless data gatherer and analyst. You execute Step 3 (Information Gathering) '
+                'by pulling relevant facts, prices, and context. Then you execute Step 4 (Analysis & Decision) '
+                'by comparing the options you found and ranking the best ones based on the decomposed plan.'
             ),
             verbose=True,
             allow_delegation=False,
             llm=get_llm(),
         )
 
-    def budget_optimizer_agent(self):
+    def optimizer_execution_agent(self):
         return Agent(
-            role='Financial Constraints Optimizer',
-            goal="Review proposed plans and research data to ensure they strictly adhere to the user's budget constraints if any.",
+            role='Operations Optimizer and Executor',
+            goal='Reduce costs, improve efficiency, suggest alternatives, and combine everything into a structured draft.',
             backstory=(
-                'You are a strict and creative accountant. When given a plan and costs, you find ways to cut expenses, '
-                'suggest cheaper alternatives, and ensure the final execution stays at or below the target budget '
-                'without sacrificing quality.'
+                'You are a master of efficiency. You execute Step 5 (Optimization) by looking at the ranked options '
+                'and actively finding ways to reduce cost or time. Then you execute Step 6 (Execution) by combining '
+                'the optimized data into a concrete, usable output draft.'
             ),
             verbose=True,
             allow_delegation=False,
             llm=get_llm(),
         )
 
-    def execution_agent(self):
+    def validation_specialist_agent(self):
         return Agent(
-            role='Final Synthesizer and Executor',
-            goal='Synthesize all plans, research, and budget optimizations into a final, comprehensive, and perfectly formatted output for the user.',
+            role='Strict Validator and Feedback Loop Manager',
+            goal='Strictly verify that all constraints are met and logic is correct. Correct any failures before generating the final output.',
             backstory=(
-                'You are the tip of the spear. You take the heavy lifting done by the Planner, Researcher, '
-                'and Optimizer, and you craft a beautiful, highly detailed, and final Markdown response that perfectly '
-                "resolves the user's initial request with clear headings, bullet points, and actionable advice."
+                'You are the MOST IMPORTANT agent in the workflow. You execute Step 7 (Validation) by rigorously '
+                'checking if the draft meets every single user constraint and ensuring no steps are missing. '
+                'If it fails, you execute Step 8 (Feedback Loop) to internally adjust the plan. Finally, you generate '
+                'the beautifully formatted, actionable Markdown output.'
             ),
             verbose=True,
             allow_delegation=False,
