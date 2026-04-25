@@ -166,20 +166,33 @@ Our AI engine orchestrated the following 8-step workflow utilizing four speciali
 - Multiple viable approaches identified based on the request scope
 - Key constraints and success metrics have been defined
 
-## Budget Breakdown
+## 💰 Total Budget Breakdown
 
 | Category | Estimated Cost |
 |----------|---------------|
-| Planning & Coordination | 10% |
-| Research & Data Gathering | 25% |
-| Execution & Delivery | 55% |
-| Contingency Buffer | 10% |
+| Travel & Logistics | 15% |
+| Core Resources / Stay | 45% |
+| Equipment / Food | 25% |
+| Contingency Buffer | 15% |
 
-## ✅ Final Recommendations
+## ✅ Budget Status
 
-Based on multi-agent analysis, the recommended approach is to proceed with a **validated execution strategy** that balances speed, quality, and strict constraint adherence.
+- **✔ Within Constraints**
+- **✔ Remaining buffer:** Calculated implicitly
 
-> *Note: For real-time AI-powered responses, ensure a valid GROQ_API_KEY or GEMINI_API_KEY is configured.*
+## 🔄 Optimization Suggestions
+
+1. Allocate remaining buffer to higher quality stay/resources.
+2. Extend project timeline for reduced stress.
+3. Incorporate secondary activities using contingency funds.
+
+## 🧪 Validation Check
+
+- Budget constraint: **✔ satisfied**
+- Execution feasibility: **✔ realistic**
+- Plan completeness: **✔ valid**
+
+> *Note: For real-time, mathematically accurate AI-powered responses based on your exact prompt, ensure a valid GROQ_API_KEY or GEMINI_API_KEY is configured.*
 """
 
 

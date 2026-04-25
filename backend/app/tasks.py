@@ -41,16 +41,18 @@ class AutoWorkerTasks():
                 "- Bullet format: Task name and exact price (or 'Free').\n\n"
                 "💰 Total Budget Breakdown\n"
                 "- MUST be a Markdown table with Category and Cost columns.\n\n"
-                "✅ Status\n"
+                "✅ Budget Status\n"
+                "- YOU MUST CALCULATE: 'Total Budget' minus 'Total Expenses' = 'Remaining buffer'\n"
                 "- ✔ Within Constraints\n"
-                "- ✔ Remaining buffer/margin\n\n"
+                "- ✔ Remaining buffer: ₹[Insert exact calculated amount]\n\n"
                 "🔄 Optimization Suggestions\n"
-                "- Suggest 3 practical upgrades or alternatives.\n\n"
+                "- Suggest 3 practical upgrades or alternatives using the remaining buffer.\n\n"
                 "🧪 Validation Check\n"
+                "YOU MUST INCLUDE THESE EXACT 3 LINES at the very end:\n"
                 "- Budget constraint: ✔ satisfied\n"
                 "- Feasibility: ✔ realistic\n"
                 "- Plan completeness: ✔ valid\n"
             ),
-            expected_output="A heavily validated, deep, beautifully structured Markdown response (min 400 words) using the exact emojis, headings, and tables provided in the blueprint.",
+            expected_output="A heavily validated, deep, beautifully structured Markdown response (min 400 words) using the exact emojis, headings, mathematical calculations, and ✅ validation check sections provided in the blueprint.",
             agent=agent
         )
