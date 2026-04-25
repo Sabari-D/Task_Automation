@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 
 interface TaskTrackerProps {
   taskId: string;
@@ -303,7 +304,7 @@ export default function TaskTracker({ taskId, onReset }: TaskTrackerProps) {
           <div className="flex-1 overflow-y-auto pr-1 custom-scrollbar">
             {isReady ? (
               <div className="report-prose">
-                <ReactMarkdown>{taskState.result || 'No result provided.'}</ReactMarkdown>
+                <ReactMarkdown remarkPlugins={[remarkGfm]}>{taskState.result || 'No result provided.'}</ReactMarkdown>
               </div>
             ) : taskState.status === 'failed' ? (
               <div className="text-red-400 p-4 bg-red-500/10 rounded-lg border border-red-500/20">
