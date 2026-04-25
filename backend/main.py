@@ -106,8 +106,8 @@ def call_ai_sync(prompt: str) -> str:
                     "https://api.groq.com/openai/v1/chat/completions",
                     headers={"Authorization": f"Bearer {groq_key}", "Content-Type": "application/json"},
                     json={"model": model, "messages": [{"role": "user", "content": full_prompt}],
-                          "max_tokens": 4000, "temperature": 0.4},
-                    timeout=25
+                          "max_tokens": 8000, "temperature": 0.4},
+                    timeout=35
                 )
                 if resp.status_code == 200:
                     print(f"[AutoWorker] GROQ {model}: SUCCESS")
@@ -143,9 +143,9 @@ def call_ai_sync(prompt: str) -> str:
                        f"{model}:generateContent?key={gemini_key}")
                 payload = {
                     "contents": [{"parts": [{"text": full_prompt}]}],
-                    "generationConfig": {"temperature": 0.4, "maxOutputTokens": 4000}
+                    "generationConfig": {"temperature": 0.4, "maxOutputTokens": 8192}
                 }
-                resp = requests.post(url, json=payload, timeout=30)
+                resp = requests.post(url, json=payload, timeout=45)
                 if resp.status_code == 200:
                     print(f"[AutoWorker] Gemini {model}: SUCCESS")
                     return resp.json()["candidates"][0]["content"]["parts"][0]["text"]
