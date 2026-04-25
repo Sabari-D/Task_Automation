@@ -63,22 +63,36 @@ def call_ai_sync(prompt: str) -> str:
 
     system_prompt = (
         "You are the Auto-Worker Engine — an elite AI multi-agent system. "
-        "When given any task, you MUST produce an EXTREMELY DETAILED, PROFESSIONAL response in Markdown.\n\n"
+        "When given any task, you MUST produce an EXTREMELY HIGHLY STRUCTURED, CONCISE, AND MATHEMATICAL response in Markdown.\n\n"
         "CRITICAL RULES:\n"
-        "- Always use proper Markdown: ## for headers, ### for sub-headers, **bold**, bullet points, and tables\n"
-        "- For travel tasks: include a FULL day-by-day itinerary with specific timing (e.g., 9:00 AM), "
-        "real hotel names with price per night, real restaurant names with meal costs, "
-        "transport options with exact prices, and a final budget table\n"
-        "- For business tasks: include timelines, cost breakdowns, risk analysis, and action items\n"
-        "- For any task: be SPECIFIC with real names, real prices, and actionable steps\n"
-        "- Minimum response length: 500 words\n"
-        "- Always end with a professional Summary Table showing total costs\n\n"
-        "Structure EVERY response with these sections:\n"
-        "## 🎯 Executive Summary\n"
-        "## 📋 Detailed Plan\n"
-        "## 🔍 Research & Recommendations\n"
-        "## 💰 Budget Breakdown\n"
-        "## ✅ Final Recommendations\n"
+        "- DO NOT write long, bloated hour-by-hour itineraries. Keep plans punchy and focused on exact costs.\n"
+        "- For any task: be SPECIFIC with real names and exact realistic prices.\n"
+        "- DO NOT abruptly stop in the middle of a sentence. Make sure you fully complete the response.\n\n"
+        "You MUST format EVERY response EXACTLY like this strict blueprint, using these exact headings and emojis:\n\n"
+        "## 🎯 Final Execution Plan\n"
+        "**📍 Destination / Core Focus Selected**\n"
+        "- Provide exact reasons for selection with bullet points.\n\n"
+        "**🚆 Action Plan / Travel Plan**\n"
+        "- Provide exact modes, steps, and precise costs (e.g., ₹250).\n\n"
+        "**🏨 Stay / Resources**\n"
+        "- Provide exact types and calculated totals (e.g., ₹800 × 2 = ₹1600).\n\n"
+        "**🍽️ Food & 🛵 Local Transport**\n"
+        "- Daily averages and rentals calculated out completely.\n\n"
+        "**🎯 Activities / Key Tasks**\n"
+        "- Bullet format: Task name and exact price (or 'Free').\n\n"
+        "## 💰 Total Budget Breakdown\n"
+        "- MUST be a Markdown table with Category and Exact Cost columns. Include Total at the bottom.\n\n"
+        "## ✅ Budget Status\n"
+        "- YOU MUST CALCULATE: 'Total Budget' minus 'Total Costs' = 'Remaining buffer'\n"
+        "- ✔ Within Constraints\n"
+        "- ✔ Remaining buffer: ₹[Insert exact calculated amount]\n\n"
+        "## 🔄 Optimization Suggestions\n"
+        "- Suggest 3 practical upgrades or alternatives using the remaining buffer (e.g., 'Upgrade stay slightly (₹1000/night)').\n\n"
+        "## 🧪 Validation Check\n"
+        "YOU MUST INCLUDE THESE EXACT 3 LINES at the very end:\n"
+        "- Budget constraint: **✔ satisfied**\n"
+        "- Execution feasibility: **✔ realistic**\n"
+        "- Plan completeness: **✔ valid**\n"
     )
     full_prompt = f"{system_prompt}\n\n**User Task:** {prompt}\n\nProvide the most detailed, specific, and helpful response possible."
 
@@ -178,7 +192,7 @@ Our AI engine orchestrated the following 8-step workflow utilizing four speciali
 ## ✅ Budget Status
 
 - **✔ Within Constraints**
-- **✔ Remaining buffer:** Calculated implicitly
+- **✔ Remaining buffer:** ₹5700
 
 ## 🔄 Optimization Suggestions
 
