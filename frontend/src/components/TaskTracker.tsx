@@ -3,6 +3,8 @@
 import { useEffect, useRef, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
+import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
 
 interface TaskTrackerProps {
   taskId: string;
@@ -304,7 +306,41 @@ export default function TaskTracker({ taskId, onReset }: TaskTrackerProps) {
           <div className="flex-1 overflow-y-auto pr-1 custom-scrollbar">
             {isReady ? (
               <div className="report-prose">
-                <ReactMarkdown remarkPlugins={[remarkGfm]}>{taskState.result || 'No result provided.'}</ReactMarkdown>
+                <ReactMarkdown 
+                  remarkPlugins={[remarkGfm]}
+                  components={{
+                    code({node, inline, className, children, ...props}: any) {
+                      const match = /language-(\w+)/.exec(className || '')
+                      return !inline && match ? (
+                        <div className="my-6 shadow-2xl rounded-xl overflow-hidden border border-surface-border">
+                          <div className="bg-[#1e293b] text-slate-400 text-xs px-4 py-2 font-mono flex items-center justify-between border-b border-surface-border">
+                            <span>{match[1]}</span>
+                            <div className="flex gap-1.5">
+                              <div className="w-2.5 h-2.5 rounded-full bg-red-400/80"></div>
+                              <div className="w-2.5 h-2.5 rounded-full bg-yellow-400/80"></div>
+                              <div className="w-2.5 h-2.5 rounded-full bg-green-400/80"></div>
+                            </div>
+                          </div>
+                          <SyntaxHighlighter
+                            style={vscDarkPlus}
+                            language={match[1]}
+                            PreTag="div"
+                            customStyle={{ margin: 0, padding: '1rem', background: '#0f172a', fontSize: '0.875rem' }}
+                            {...props}
+                          >
+                            {String(children).replace(/\n$/, '')}
+                          </SyntaxHighlighter>
+                        </div>
+                      ) : (
+                        <code className={className} {...props}>
+                          {children}
+                        </code>
+                      )
+                    }
+                  }}
+                >
+                  {taskState.result || 'No result provided.'}
+                </ReactMarkdown>
               </div>
             ) : taskState.status === 'failed' ? (
               <div className="text-red-400 p-4 bg-red-500/10 rounded-lg border border-red-500/20">
