@@ -205,13 +205,13 @@ export default function TaskTracker({ taskId, onReset }: TaskTrackerProps) {
               ? 'bg-red-500 shadow-[0_0_10px_#ef4444]'
               : 'bg-yellow-500 shadow-[0_0_10px_#eab308] animate-pulse'
           }`}></div>
-          <h2 className="text-xl font-semibold capitalize text-white">
+          <h2 className="text-xl font-semibold capitalize text-foreground">
             Task Status: <span className="text-primary">{taskState.status}</span>
           </h2>
         </div>
         <button
           onClick={onReset}
-          className="text-sm text-slate-400 hover:text-white transition-colors"
+          className="text-sm text-slate-400 hover:text-foreground transition-colors"
         >
           New Task
         </button>
@@ -249,7 +249,7 @@ export default function TaskTracker({ taskId, onReset }: TaskTrackerProps) {
         <div className="glass-card flex flex-col h-[520px]">
           {/* Report Header Row */}
           <div className="flex items-center justify-between border-b border-surface-border pb-4 mb-4 flex-shrink-0">
-            <h3 className="text-lg font-medium text-white flex items-center gap-2">
+            <h3 className="text-lg font-medium text-foreground flex items-center gap-2">
               <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-primary"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
               Final Execution Report
             </h3>
@@ -273,7 +273,7 @@ export default function TaskTracker({ taskId, onReset }: TaskTrackerProps) {
                       <button
                         id="download-markdown-btn"
                         onClick={downloadMarkdown}
-                        className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-slate-300 hover:text-white hover:bg-primary/20 transition-all duration-150 group"
+                        className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-slate-400 hover:text-foreground hover:bg-primary/20 transition-all duration-150 group"
                       >
                         <span className="text-lg">📄</span>
                         <div className="text-left">
@@ -284,7 +284,7 @@ export default function TaskTracker({ taskId, onReset }: TaskTrackerProps) {
                       <button
                         id="download-pdf-btn"
                         onClick={downloadPDF}
-                        className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-slate-300 hover:text-white hover:bg-secondary/20 transition-all duration-150 group"
+                        className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-slate-400 hover:text-foreground hover:bg-secondary/20 transition-all duration-150 group"
                       >
                         <span className="text-lg">📑</span>
                         <div className="text-left">
