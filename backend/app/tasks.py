@@ -25,7 +25,32 @@ class AutoWorkerTasks():
 
     def validate_and_feedback_task(self, agent, user_prompt):
         return Task(
-            description=f"Step 7 & 8: MOST IMPORTANT. Review the draft for '{user_prompt}'. Verify rigidly if ALL constraints were met and logic is correct. Correct any gaps. Produce the final structured Markdown output.",
-            expected_output="A heavily validated, perfectly formatted final response (MAX 250 WORDS) answering the request completely.",
+            description=(
+                f"Step 7 & 8: MOST IMPORTANT. Review the draft for '{user_prompt}'. Verify rigidly if ALL constraints were met and logic is correct. "
+                "You MUST format your final response EXACTLY like this strict blueprint, using these exact headings and emojis:\n\n"
+                "🎯 Final Execution Plan\n"
+                "📍 Destination / Core Focus Selected\n"
+                "- Provide exact reasons for selection with bullet points.\n\n"
+                "🚆 Action Plan / Travel Plan\n"
+                "- Provide exact modes, steps, and precise costs (e.g., ₹250).\n\n"
+                "🏨 Stay / Resources\n"
+                "- Provide exact types and calculated totals (e.g., ₹800 × 2 = ₹1600).\n\n"
+                "🍽️ Food & 🛵 Local Transport (if applicable)\n"
+                "- Daily averages and rentals calculated out completely.\n\n"
+                "🎯 Activities / Key Tasks\n"
+                "- Bullet format: Task name and exact price (or 'Free').\n\n"
+                "💰 Total Budget Breakdown\n"
+                "- MUST be a Markdown table with Category and Cost columns.\n\n"
+                "✅ Status\n"
+                "- ✔ Within Constraints\n"
+                "- ✔ Remaining buffer/margin\n\n"
+                "🔄 Optimization Suggestions\n"
+                "- Suggest 3 practical upgrades or alternatives.\n\n"
+                "🧪 Validation Check\n"
+                "- Budget constraint: ✔ satisfied\n"
+                "- Feasibility: ✔ realistic\n"
+                "- Plan completeness: ✔ valid\n"
+            ),
+            expected_output="A heavily validated, deep, beautifully structured Markdown response (min 400 words) using the exact emojis, headings, and tables provided in the blueprint.",
             agent=agent
         )

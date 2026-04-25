@@ -15,7 +15,7 @@ def get_llm() -> LLM:
             model="groq/llama-3.1-8b-instant",
             api_key=os.getenv("GROQ_API_KEY"),
             temperature=0.3,
-            max_tokens=512,
+            max_tokens=1500,
             timeout=90,
             max_retries=5,
         )
@@ -24,7 +24,7 @@ def get_llm() -> LLM:
             model="gemini/gemini-2.0-flash",
             api_key=os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY"),
             temperature=0.3,
-            max_tokens=1024,
+            max_tokens=2048,
             timeout=90,
             max_retries=5,
         )
