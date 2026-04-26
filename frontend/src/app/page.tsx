@@ -7,6 +7,7 @@ interface TaskHistory {
   id: string;
   prompt: string;
   timestamp: number;
+  mode?: 'quick' | 'deep';
 }
 
 export default function Home() {
@@ -50,15 +51,16 @@ export default function Home() {
     localStorage.setItem('theme', newTheme);
   };
 
-  const saveToHistory = (id: string, userPrompt: string) => {
-    const newItem: TaskHistory = { id, prompt: userPrompt, timestamp: Date.now() };
+  const saveToHistory = (id: string, userPrompt: string, activeMode: 'quick' | 'deep') => {
+    const newItem: TaskHistory = { id, prompt: userPrompt, timestamp: Date.now(), mode: activeMode };
     const updated = [newItem, ...history];
     setHistory(updated);
     localStorage.setItem('taskHistory', JSON.stringify(updated));
   };
 
-  const loadPastTask = (id: string) => {
+  const loadPastTask = (id: string, pastMode: 'quick' | 'deep' = 'deep') => {
     setTaskId(id);
+    setMode(pastMode);
     setIsHistoryOpen(false);
   };
 
@@ -106,7 +108,7 @@ export default function Home() {
       const data = await res.json();
       setDraftSteps(null);
       setTaskId(data.task_id);
-      saveToHistory(data.task_id, prompt);
+      saveToHistory(data.task_id, prompt, mode);
     } catch (err: any) {
       setError(err.message || 'An error occurred.');
     } finally {
@@ -159,9 +161,14 @@ export default function Home() {
                 history.map((h) => (
                   <button
                     key={h.id}
-                    onClick={() => loadPastTask(h.id)}
+                    onClick={() => loadPastTask(h.id, h.mode)}
                     className="p-3 text-left rounded-lg bg-surface border border-surface-border hover:border-primary/50 transition-all group"
                   >
+                    <div className="flex items-center justify-between mb-1">
+                      <span className={`text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded ${h.mode === 'quick' ? 'bg-secondary/20 text-secondary' : 'bg-primary/20 text-primary'}`}>
+                        {h.mode === 'quick' ? '⚡ Quick' : '🧠 Deep'}
+                      </span>
+                    </div>
                     <p className="text-sm font-medium text-foreground line-clamp-2">{h.prompt}</p>
                     <p className="text-[10px] text-slate-500 mt-2">{new Date(h.timestamp).toLocaleString()}</p>
                   </button>
@@ -294,7 +301,7 @@ export default function Home() {
           </div>
         ) : (
           <div className="w-full max-w-5xl animate-fade-in">
-            <TaskTracker taskId={taskId!} onReset={() => { setTaskId(null); setDraftSteps(null); setPrompt(''); }} />
+            <TaskTracker taskId={taskId!} mode={mode} onReset={() => { setTaskId(null); setDraftSteps(null); setPrompt(''); }} />
           </div>
         )}
 
