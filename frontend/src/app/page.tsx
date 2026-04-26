@@ -12,6 +12,7 @@ interface TaskHistory {
 export default function Home() {
   const [prompt, setPrompt] = useState('');
   const [taskId, setTaskId] = useState<string | null>(null);
+  const [draftSteps, setDraftSteps] = useState<string[] | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [theme, setTheme] = useState<'dark' | 'light'>('dark');
@@ -73,13 +74,34 @@ export default function Home() {
     setError(null);
     try {
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000';
-      const res = await fetch(`${apiUrl}/api/task`, {
+      const res = await fetch(`${apiUrl}/api/plan`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ user_prompt: prompt }),
       });
+      if (!res.ok) throw new Error('Failed to generate draft plan');
+      const data = await res.json();
+      setDraftSteps(data.steps);
+    } catch (err: any) {
+      setError(err.message || 'An error occurred.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const executePlan = async (finalSteps: string[]) => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000';
+      const res = await fetch(`${apiUrl}/api/task`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_prompt: prompt, custom_plan: finalSteps }),
+      });
       if (!res.ok) throw new Error('Failed to start task');
       const data = await res.json();
+      setDraftSteps(null);
       setTaskId(data.task_id);
       saveToHistory(data.task_id, prompt);
     } catch (err: any) {
@@ -97,14 +119,14 @@ export default function Home() {
           ⚡ Auto-Worker
         </div>
         <div className="flex items-center gap-4">
-          <button 
-            onClick={toggleTheme} 
+          <button
+            onClick={toggleTheme}
             className="p-2 rounded-full glass hover:bg-primary/20 transition-colors text-xl leading-none"
             title="Toggle Theme"
           >
             {theme === 'dark' ? '☀️' : '🌙'}
           </button>
-          <button 
+          <button
             onClick={() => setIsHistoryOpen(true)}
             className="px-4 py-1.5 rounded-lg border border-primary/30 bg-primary/10 hover:bg-primary/20 text-primary font-medium text-sm transition-colors"
           >
@@ -120,8 +142,8 @@ export default function Home() {
           <div className="relative w-80 max-w-[80vw] h-full bg-background border-l border-surface-border flex flex-col animate-fade-in shadow-2xl">
             <div className="p-5 border-b border-surface-border flex items-center justify-between">
               <h2 className="text-lg font-bold text-foreground">Task History</h2>
-              <button 
-                onClick={() => setIsHistoryOpen(false)} 
+              <button
+                onClick={() => setIsHistoryOpen(false)}
                 className="text-slate-400 hover:text-foreground text-2xl leading-none"
               >
                 ×
@@ -132,8 +154,8 @@ export default function Home() {
                 <p className="text-slate-500 text-sm text-center mt-10">No history found.</p>
               ) : (
                 history.map((h) => (
-                  <button 
-                    key={h.id} 
+                  <button
+                    key={h.id}
                     onClick={() => loadPastTask(h.id)}
                     className="p-3 text-left rounded-lg bg-surface border border-surface-border hover:border-primary/50 transition-all group"
                   >
@@ -145,8 +167,8 @@ export default function Home() {
             </div>
             {history.length > 0 && (
               <div className="p-4 border-t border-surface-border">
-                <button 
-                  onClick={clearHistory} 
+                <button
+                  onClick={clearHistory}
                   className="w-full py-2 rounded-lg text-red-400 text-sm hover:bg-red-500/10 transition-colors"
                 >
                   Clear History
@@ -159,7 +181,7 @@ export default function Home() {
 
       {/* Main Content Area */}
       <main className="container mx-auto px-4 py-12 flex flex-col items-center flex-1">
-        
+
         {/* Hero Section */}
         <div className="text-center max-w-4xl w-full mb-12 animate-fade-in">
           <div className="inline-block px-4 py-1.5 rounded-full border border-primary/30 bg-primary/10 text-primary-glow font-medium text-sm mb-6">
@@ -173,7 +195,7 @@ export default function Home() {
           </p>
         </div>
 
-        {!taskId ? (
+        {!taskId && !draftSteps ? (
           <div className="w-full max-w-3xl glass-card animate-fade-in relative group">
             <div className="absolute -inset-1 bg-gradient-to-r from-primary to-secondary rounded-2xl blur opacity-25 group-hover:opacity-40 transition duration-1000 group-hover:duration-200"></div>
             <form onSubmit={handleSubmit} className="relative glass rounded-xl p-2 flex flex-col sm:flex-row gap-2">
@@ -181,7 +203,7 @@ export default function Home() {
                 type="text"
                 value={prompt}
                 onChange={(e) => setPrompt(e.target.value)}
-                placeholder="e.g., Plan a 3-day trip to Goa under ₹10k"
+                placeholder="Ask anything..."
                 className="flex-1 bg-transparent border-none focus:ring-0 text-foreground placeholder-slate-400 px-4 py-3 text-lg outline-none"
                 disabled={isLoading}
               />
@@ -193,16 +215,63 @@ export default function Home() {
                 {isLoading ? (
                   <span className="flex items-center gap-2">
                     <div className="w-4 h-4 rounded-full border-2 border-white/20 border-t-white animate-spin"></div>
-                    Deploying...
+                    Drafting...
                   </span>
-                ) : 'Deploy Agents'}
+                ) : 'Draft Plan'}
               </button>
             </form>
             {error && <p className="text-red-400 mt-4 text-center">{error}</p>}
           </div>
+        ) : draftSteps && !taskId ? (
+          <div className="w-full max-w-4xl glass-card animate-fade-in flex flex-col items-center">
+            <h2 className="text-2xl font-bold mb-2 text-foreground">✍️ Review & Edit Plan</h2>
+            <p className="text-slate-400 text-sm mb-6 max-w-xl text-center">Modify the AI's generated action steps before final multi-agent execution. You have full control.</p>
+            
+            <div className="w-full flex flex-col gap-3 mb-6">
+              {draftSteps.map((step, i) => (
+                <div key={i} className="flex gap-3 items-center w-full animate-fade-in">
+                  <span className="text-primary font-bold w-6 text-center">{i + 1}.</span>
+                  <input
+                    type="text"
+                    value={step}
+                    onChange={(e) => {
+                      const newSteps = [...draftSteps];
+                      newSteps[i] = e.target.value;
+                      setDraftSteps(newSteps);
+                    }}
+                    className="flex-1 bg-surface border border-surface-border text-foreground px-4 py-3 rounded-xl focus:border-primary/50 outline-none transition-colors"
+                  />
+                  <button
+                    onClick={() => setDraftSteps(draftSteps.filter((_, idx) => idx !== i))}
+                    className="p-3 bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded-xl transition-colors"
+                    title="Remove Step"
+                  >
+                    ×
+                  </button>
+                </div>
+              ))}
+            </div>
+            
+            <div className="flex gap-4 w-full">
+              <button
+                onClick={() => setDraftSteps([...draftSteps, "New Task Step"])}
+                className="flex-1 py-3 border border-dashed border-primary/40 rounded-xl text-primary hover:bg-primary/10 transition-colors font-medium"
+              >
+                + Add Step
+              </button>
+              <button
+                onClick={() => executePlan(draftSteps)}
+                disabled={isLoading}
+                className="flex-[2] py-3 bg-primary hover:bg-primary/90 text-white rounded-xl shadow-[0_0_20px_rgba(139,92,246,0.3)] transition-all font-bold"
+              >
+                 {isLoading ? 'Executing...' : '🚀 Run Execution'}
+              </button>
+            </div>
+            {error && <p className="text-red-400 mt-4">{error}</p>}
+          </div>
         ) : (
           <div className="w-full max-w-5xl animate-fade-in">
-            <TaskTracker taskId={taskId} onReset={() => setTaskId(null)} />
+            <TaskTracker taskId={taskId!} onReset={() => { setTaskId(null); setDraftSteps(null); setPrompt(''); }} />
           </div>
         )}
 

@@ -34,7 +34,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-from app.models import AutoTaskRequest, AutoTaskResponse
+from app.models import AutoTaskRequest, AutoTaskResponse, PlanRequest, PlanResponse
 from app.database import (
     init_db, AsyncSessionLocal, TaskRecord,
     sync_update_task, SyncSessionLocal
@@ -52,7 +52,7 @@ async def startup():
 
 # ── Direct Gemini Call (synchronous — safe in background threads) ────────────
 
-def call_ai_sync(prompt: str) -> str:
+def call_ai_sync(prompt: str, custom_plan: list = None) -> str:
     """
     Multi-provider AI call with automatic fallback chain:
     1. GROQ (fastest, most reliable)
@@ -96,7 +96,11 @@ def call_ai_sync(prompt: str) -> str:
         "- Execution feasibility: **✔ realistic**\n"
         "- Plan completeness: **✔ valid**\n"
     )
-    full_prompt = f"{system_prompt}\n\n**User Task:** {prompt}\n\nProvide the most detailed, specific, and helpful response possible."
+    full_prompt = f"{system_prompt}\n\n**User Task:** {prompt}\n\n"
+    if custom_plan and len(custom_plan) > 0:
+        steps_text = "\n".join([f"{i+1}. {step}" for i, step in enumerate(custom_plan)])
+        full_prompt += f"**MANDATORY USER-APPROVED EXECUTION PLAN:**\n{steps_text}\n\nYou MUST fundamentally base your Output Action Pipeline entirely on these approved steps.\n\n"
+    full_prompt += "Provide the most detailed, specific, and helpful response possible."
 
     # ── 1. Try GROQ (fastest, sub-3s responses) ──────────────────────────────
     groq_key = os.getenv("GROQ_API_KEY", "")
@@ -212,11 +216,11 @@ Our AI engine orchestrated the following 8-step workflow utilizing four speciali
 """
 
 
-def background_task_runner(task_id: str, prompt: str):
+def background_task_runner(task_id: str, prompt: str, custom_plan: list = None):
     """Runs in a background thread. Uses sync DB — no event loop issues."""
     sync_update_task(task_id, "running")
     try:
-        result = call_ai_sync(prompt)
+        result = call_ai_sync(prompt, custom_plan)
         sync_update_task(task_id, "completed", result)
         print(f"[AutoWorker] Task {task_id} completed successfully.")
     except Exception as e:
@@ -231,6 +235,48 @@ def background_task_runner(task_id: str, prompt: str):
 async def root():
     return {"status": "Auto-Worker API is live", "version": "1.0.0"}
 
+
+@app.post("/api/plan", response_model=PlanResponse)
+async def draft_plan(request: PlanRequest):
+    import requests
+    prompt_str = (
+        "You are an AI planner. Given the user task, output a JSON object containing a property 'steps' which is an array of 4 to 6 short, actionable text strings to accomplish it. "
+        "Strictly return valid JSON only, no markdown blocks, no other text. Example: {\"steps\": [\"Find destinations\", \"Compare costs\", \"Optimize budget\", \"Generate itinerary\"]}. "
+        f"\n\nTask: {request.user_prompt}"
+    )
+    groq_key = os.getenv("GROQ_API_KEY", "")
+    if groq_key and not groq_key.startswith("your_"):
+        try:
+            resp = requests.post(
+                "https://api.groq.com/openai/v1/chat/completions",
+                headers={"Authorization": f"Bearer {groq_key}", "Content-Type": "application/json"},
+                json={"model": "llama-3.1-8b-instant", "messages": [{"role": "user", "content": prompt_str}],
+                      "temperature": 0.2, "response_format": {"type": "json_object"}},
+                timeout=15
+            )
+            data = resp.json()["choices"][0]["message"]["content"]
+            steps = json.loads(data).get("steps", [])
+            if steps: return PlanResponse(steps=steps)
+        except Exception as e:
+            pass
+        
+    gemini_key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY", "")
+    if gemini_key:
+        try:
+            url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={gemini_key}"
+            payload = {
+                "contents": [{"parts": [{"text": prompt_str}]}],
+                "generationConfig": {"temperature": 0.2, "responseMimeType": "application/json"}
+            }
+            resp = requests.post(url, json=payload, timeout=15)
+            if resp.status_code == 200:
+                txt = resp.json()["candidates"][0]["content"]["parts"][0]["text"]
+                steps = json.loads(txt).get("steps", [])
+                if steps: return PlanResponse(steps=steps)
+        except Exception as e:
+            pass
+            
+    return PlanResponse(steps=["Gather Requirements", "Analyze Constraints", "Design Strategy", "Execute Plan"])
 
 @app.post("/api/task", response_model=AutoTaskResponse)
 async def create_task(request: AutoTaskRequest):
@@ -265,7 +311,7 @@ async def create_task(request: AutoTaskRequest):
     # Dispatch to background thread — non-blocking
     thread = threading.Thread(
         target=background_task_runner,
-        args=(task_id, request.user_prompt),
+        args=(task_id, request.user_prompt, request.custom_plan),
         daemon=True
     )
     thread.start()
