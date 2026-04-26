@@ -52,7 +52,9 @@ async def startup():
 
 # ── Direct Gemini Call (synchronous — safe in background threads) ────────────
 
-def call_ai_sync(prompt: str, custom_plan: list = None) -> str:
+import time
+
+def call_ai_sync(prompt: str, custom_plan: list = None, context: list = None) -> str:
     """
     Multi-provider AI call with automatic fallback chain:
     1. GROQ (fastest, most reliable)
@@ -82,6 +84,11 @@ def call_ai_sync(prompt: str, custom_plan: list = None) -> str:
         "- List secondary daily commitments or minor activities.\n\n"
         "## 💰 Total Estimated Cost & Resources\n"
         "- MUST be a proper Markdown table with 'Item' and 'Cost/Time' columns. Include Total at the bottom.\n\n"
+        "## 🧠 Internal Reasoning & Validation\n"
+        "- If you detect constraints are likely exceeded (e.g. over budget), simulate a Self-Correction.\n"
+        "  - Example: `> 🛑 **Constraint Check:** Budget Exceeded by $1000`\n"
+        "  - Example: `> 🔄 **Self-Correction:** Swapping luxury option for standard. Savings: $1200.`\n"
+        "  - Example: `> ✅ **New Status:** Validated.`\n\n"
         "## ✅ Status Tracker\n"
         "- YOU MUST CALCULATE EXPLICITLY: 'Total Budget' minus 'Total Costs' = 'Remaining buffer'\n"
         "- ✔ Within Constraints\n"
@@ -94,11 +101,36 @@ def call_ai_sync(prompt: str, custom_plan: list = None) -> str:
         "- Execution feasibility: **✔ realistic**\n"
         "- Plan completeness: **✔ valid**\n"
     )
-    full_prompt = f"{system_prompt}\n\n**User Task:** {prompt}\n\n"
+    
+    full_prompt = f"{system_prompt}\n\n"
+    
+    if context and len(context) > 0:
+        hist = "\n".join([f"- Previous request: {c}" for c in context])
+        full_prompt += f"**STATEFUL MEMORY (Prior Actions in this Session):**\n{hist}\nUse this context to remember past requests if the user references them (e.g., 'Make it cheaper than last time').\n\n"
+        
+    full_prompt += f"**User Task:** {prompt}\n\n"
+    
     if custom_plan and len(custom_plan) > 0:
         steps_text = "\n".join([f"{i+1}. {step}" for i, step in enumerate(custom_plan)])
         full_prompt += f"**MANDATORY USER-APPROVED EXECUTION PLAN:**\n{steps_text}\n\nYou MUST fundamentally base your Output Action Pipeline entirely on these approved steps.\n\n"
+        
     full_prompt += "Provide the most detailed, specific, and helpful response possible."
+
+    start_time = time.time()
+    def format_metrics(result_text: str, provider: str) -> str:
+        tt = time.time() - start_time
+        prompt_t = len(full_prompt) // 4
+        comp_t = len(result_text) // 4
+        total_t = prompt_t + comp_t
+        cost = total_t * 0.00000015 # Est average per token
+        metrics = (
+            f"\n\n---\n"
+            f"**📊 System Metrics & Tracker ({provider})**\n"
+            f"- **Tokens Used:** {prompt_t} (Prompt) + {comp_t} (Completion) = **{total_t} tokens**\n"
+            f"- **Estimated Cost:** ${cost:.6f}\n"
+            f"- **Execution Time:** {tt:.2f}s\n"
+        )
+        return result_text + metrics
 
     # ── 1. Try GROQ (fastest, sub-3s responses) ──────────────────────────────
     groq_key = os.getenv("GROQ_API_KEY", "")
@@ -115,7 +147,7 @@ def call_ai_sync(prompt: str, custom_plan: list = None) -> str:
                 )
                 if resp.status_code == 200:
                     print(f"[AutoWorker] GROQ {model}: SUCCESS")
-                    return resp.json()["choices"][0]["message"]["content"]
+                    return format_metrics(resp.json()["choices"][0]["message"]["content"], f"GROQ {model}")
             except Exception as e:
                 print(f"[AutoWorker] GROQ {model} failed: {e}")
                 continue
@@ -152,7 +184,7 @@ def call_ai_sync(prompt: str, custom_plan: list = None) -> str:
                 resp = requests.post(url, json=payload, timeout=45)
                 if resp.status_code == 200:
                     print(f"[AutoWorker] Gemini {model}: SUCCESS")
-                    return resp.json()["candidates"][0]["content"]["parts"][0]["text"]
+                    return format_metrics(resp.json()["candidates"][0]["content"]["parts"][0]["text"], f"Gemini {model}")
                 else:
                     print(f"[AutoWorker] Gemini {model} HTTP {resp.status_code}")
             except Exception as e:
@@ -214,11 +246,11 @@ Our AI engine orchestrated the following 8-step workflow utilizing four speciali
 """
 
 
-def background_task_runner(task_id: str, prompt: str, custom_plan: list = None):
+def background_task_runner(task_id: str, prompt: str, custom_plan: list = None, context: list = None):
     """Runs in a background thread. Uses sync DB — no event loop issues."""
     sync_update_task(task_id, "running")
     try:
-        result = call_ai_sync(prompt, custom_plan)
+        result = call_ai_sync(prompt, custom_plan, context)
         sync_update_task(task_id, "completed", result)
         print(f"[AutoWorker] Task {task_id} completed successfully.")
     except Exception as e:
@@ -240,7 +272,7 @@ async def draft_plan(request: PlanRequest):
     prompt_str = (
         "You are an AI planner. Given the user task, output a JSON object containing a property 'steps' which is an array of 4 to 6 short, actionable text strings to accomplish it. "
         "Strictly return valid JSON only, no markdown blocks, no other text. Example: {\"steps\": [\"Find destinations\", \"Compare costs\", \"Optimize budget\", \"Generate itinerary\"]}. "
-        f"\n\nTask: {request.user_prompt}"
+        f"\n\nContext:\n{str(request.context)}\n\nTask: {request.user_prompt}"
     )
     groq_key = os.getenv("GROQ_API_KEY", "")
     if groq_key and not groq_key.startswith("your_"):
@@ -309,7 +341,7 @@ async def create_task(request: AutoTaskRequest):
     # Dispatch to background thread — non-blocking
     thread = threading.Thread(
         target=background_task_runner,
-        args=(task_id, request.user_prompt, request.custom_plan),
+        args=(task_id, request.user_prompt, request.custom_plan, request.context),
         daemon=True
     )
     thread.start()

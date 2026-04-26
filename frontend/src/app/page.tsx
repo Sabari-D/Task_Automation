@@ -74,10 +74,11 @@ export default function Home() {
     setError(null);
     try {
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000';
+      const contextHistory = history.slice(0, 3).map(h => h.prompt);
       const res = await fetch(`${apiUrl}/api/plan`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ user_prompt: prompt }),
+        body: JSON.stringify({ user_prompt: prompt, context: contextHistory }),
       });
       if (!res.ok) throw new Error('Failed to generate draft plan');
       const data = await res.json();
@@ -94,10 +95,11 @@ export default function Home() {
     setError(null);
     try {
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000';
+      const contextHistory = history.slice(0, 3).map(h => h.prompt);
       const res = await fetch(`${apiUrl}/api/task`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ user_prompt: prompt, custom_plan: finalSteps }),
+        body: JSON.stringify({ user_prompt: prompt, custom_plan: finalSteps, context: contextHistory }),
       });
       if (!res.ok) throw new Error('Failed to start task');
       const data = await res.json();
