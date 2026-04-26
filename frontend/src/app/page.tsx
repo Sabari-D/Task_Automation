@@ -13,6 +13,7 @@ export default function Home() {
   const [prompt, setPrompt] = useState('');
   const [taskId, setTaskId] = useState<string | null>(null);
   const [draftSteps, setDraftSteps] = useState<string[] | null>(null);
+  const [mode, setMode] = useState<'quick' | 'deep'>('deep');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [theme, setTheme] = useState<'dark' | 'light'>('dark');
@@ -78,7 +79,7 @@ export default function Home() {
       const res = await fetch(`${apiUrl}/api/plan`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ user_prompt: prompt, context: contextHistory }),
+        body: JSON.stringify({ user_prompt: prompt, context: contextHistory, mode }),
       });
       if (!res.ok) throw new Error('Failed to generate draft plan');
       const data = await res.json();
@@ -99,7 +100,7 @@ export default function Home() {
       const res = await fetch(`${apiUrl}/api/task`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ user_prompt: prompt, custom_plan: finalSteps, context: contextHistory }),
+        body: JSON.stringify({ user_prompt: prompt, custom_plan: finalSteps, context: contextHistory, mode }),
       });
       if (!res.ok) throw new Error('Failed to start task');
       const data = await res.json();
@@ -198,30 +199,50 @@ export default function Home() {
         </div>
 
         {!taskId && !draftSteps ? (
-          <div className="w-full max-w-3xl glass-card animate-fade-in relative group">
-            <div className="absolute -inset-1 bg-gradient-to-r from-primary to-secondary rounded-2xl blur opacity-25 group-hover:opacity-40 transition duration-1000 group-hover:duration-200"></div>
-            <form onSubmit={handleSubmit} className="relative glass rounded-xl p-2 flex flex-col sm:flex-row gap-2">
-              <input
-                type="text"
-                value={prompt}
-                onChange={(e) => setPrompt(e.target.value)}
-                placeholder="Ask anything..."
-                className="flex-1 bg-transparent border-none focus:ring-0 text-foreground placeholder-slate-400 px-4 py-3 text-lg outline-none"
+          <div className="w-full max-w-3xl animate-fade-in relative flex flex-col items-center">
+            
+            <div className="flex bg-surface border border-surface-border rounded-full p-1 mb-6 shadow-lg">
+              <button 
+                onClick={() => setMode('quick')}
                 disabled={isLoading}
-              />
-              <button
-                type="submit"
-                disabled={isLoading || !prompt.trim()}
-                className="bg-primary hover:bg-primary/80 text-white font-medium py-3 px-8 rounded-lg transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+                className={`px-6 py-2 rounded-full text-sm font-bold transition-all ${mode === 'quick' ? 'bg-primary text-white shadow-md' : 'text-slate-400 hover:text-foreground'}`}
               >
-                {isLoading ? (
-                  <span className="flex items-center gap-2">
-                    <div className="w-4 h-4 rounded-full border-2 border-white/20 border-t-white animate-spin"></div>
-                    Drafting...
-                  </span>
-                ) : 'Draft Plan'}
+                ⚡ Quick Mode
               </button>
-            </form>
+              <button 
+                onClick={() => setMode('deep')}
+                disabled={isLoading}
+                className={`px-6 py-2 rounded-full text-sm font-bold transition-all ${mode === 'deep' ? 'bg-primary text-white shadow-md' : 'text-slate-400 hover:text-foreground'}`}
+              >
+                🧠 Deep Mode
+              </button>
+            </div>
+
+            <div className="w-full relative group glass-card rounded-2xl">
+              <div className="absolute -inset-1 bg-gradient-to-r from-primary to-secondary rounded-2xl blur opacity-25 group-hover:opacity-40 transition duration-1000 group-hover:duration-200"></div>
+              <form onSubmit={handleSubmit} className="relative glass rounded-xl p-2 flex flex-col sm:flex-row gap-2">
+                <input
+                  type="text"
+                  value={prompt}
+                  onChange={(e) => setPrompt(e.target.value)}
+                  placeholder="Ask anything..."
+                  className="flex-1 bg-transparent border-none focus:ring-0 text-foreground placeholder-slate-400 px-4 py-3 text-lg outline-none"
+                  disabled={isLoading}
+                />
+                <button
+                  type="submit"
+                  disabled={isLoading || !prompt.trim()}
+                  className="bg-primary hover:bg-primary/80 text-white font-medium py-3 px-8 rounded-lg transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+                >
+                  {isLoading ? (
+                    <span className="flex items-center gap-2">
+                      <div className="w-4 h-4 rounded-full border-2 border-white/20 border-t-white animate-spin"></div>
+                      Drafting...
+                    </span>
+                  ) : 'Draft Plan'}
+                </button>
+              </form>
+            </div>
             {error && <p className="text-red-400 mt-4 text-center">{error}</p>}
           </div>
         ) : draftSteps && !taskId ? (

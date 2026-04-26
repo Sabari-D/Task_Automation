@@ -54,7 +54,7 @@ async def startup():
 
 import time
 
-def call_ai_sync(prompt: str, custom_plan: list = None, context: list = None) -> str:
+def call_ai_sync(prompt: str, custom_plan: list = None, context: list = None, mode: str = "deep") -> str:
     """
     Multi-provider AI call with automatic fallback chain:
     1. GROQ (fastest, most reliable)
@@ -63,43 +63,51 @@ def call_ai_sync(prompt: str, custom_plan: list = None, context: list = None) ->
     """
     import requests
 
-    system_prompt = (
-        "You are the Auto-Worker Engine — an elite AI multi-agent system executing an 8-step cognitive workflow: Think, Search, Decide, Optimize, Execute, Verify.\n"
-        "When given any task, you MUST produce an EXTREMELY HIGHLY STRUCTURED, CONCISE, AND MATHEMATICALLY ACCURATE response.\n\n"
-        "CRITICAL RULES FOR DYNAMIC GENERATION:\n"
-        "1. NEVER copy literal instruction text mapping like '(e.g. Paid vs Free)'. You MUST intelligently generate clean, professional headers natively tailored to the domain.\n"
-        "2. ADAPT TO DOMAIN: If it's a TRAVEL task, focus ONLY on logistics, travel costs, and hotels. IF AND ONLY IF it is a SKILL/EDUCATION task, you must provide career predictions (e.g. 'Where user will be in 4 years'). DO NOT put career/multi-year predictions into travel trip plans!\n"
-        "3. DO NOT abruptly stop in the middle of a sentence.\n\n"
-        "You MUST structure your response into these exact sequential sections, generating your own elegant, contextual headers using emojis:\n\n"
-        "## 🎯 Final Execution Plan\n"
-        "**[Generate a contextual Title for Core Focus]**\n"
-        "- Detail the core objective and deep domain analysis here.\n\n"
-        "**[Generate a contextual Title for the Action Pipeline/Implementation]**\n"
-        "- IF CODE IS NEEDED: State the target language. Then output production-ready code fully enclosed within triple backticks (e.g. ```python ... ```).\n"
-        "- IF NO CODE: Provide actionable stages, timelines, and execution steps.\n\n"
-        "**[Generate a contextual Title for Assets/Resources]**\n"
-        "- Detail exact required items (e.g., specific hotels, tools, or courses). Contrast free vs paid options if appropriate.\n\n"
-        "**[Generate a contextual Title for Supporting Tasks]**\n"
-        "- List secondary daily commitments or minor activities.\n\n"
-        "## 💰 Total Estimated Cost & Resources\n"
-        "- MUST be a proper Markdown table with 'Item' and 'Cost/Time' columns. Include Total at the bottom.\n\n"
-        "## 🧠 Internal Reasoning & Validation\n"
-        "- If you detect constraints are likely exceeded (e.g. over budget), simulate a Self-Correction.\n"
-        "  - Example: `> 🛑 **Constraint Check:** Budget Exceeded by $1000`\n"
-        "  - Example: `> 🔄 **Self-Correction:** Swapping luxury option for standard. Savings: $1200.`\n"
-        "  - Example: `> ✅ **New Status:** Validated.`\n\n"
-        "## ✅ Status Tracker\n"
-        "- YOU MUST CALCULATE EXPLICITLY: 'Total Budget' minus 'Total Costs' = 'Remaining buffer'\n"
-        "- ✔ Within Constraints\n"
-        "- ✔ Remaining buffer: [Insert exact calculated amount here]\n\n"
-        "## 🔄 Optimization Suggestions\n"
-        "- Suggest 3 practical ways to upgrade the plan or save money/time natively.\n\n"
-        "## 🧪 Validation Check\n"
-        "YOU MUST INCLUDE THESE EXACT 3 LINES at the very end:\n"
-        "- Constraints: **✔ satisfied**\n"
-        "- Execution feasibility: **✔ realistic**\n"
-        "- Plan completeness: **✔ valid**\n"
-    )
+    if mode == "quick":
+        system_prompt = (
+            "You are a fast-acting AI assistant. The user has requested 'Quick Mode'.\n"
+            "Provide an exact, bulletproof, short plan and overall low-level analysis. Use simple, readable bullet points.\n"
+            "Keep the entire response highly concise and immediately actionable.\n"
+            "DO NOT use massive structured templates, do NOT generate markdown tables, and do NOT generate deep validation trackers. Just get straight to the exact steps and basic analysis."
+        )
+    else:
+        system_prompt = (
+            "You are the Auto-Worker Engine — an elite AI multi-agent system executing an 8-step cognitive workflow: Think, Search, Decide, Optimize, Execute, Verify.\n"
+            "When given any task, you MUST produce an EXTREMELY HIGHLY STRUCTURED, CONCISE, AND MATHEMATICALLY ACCURATE response.\n\n"
+            "CRITICAL RULES FOR DYNAMIC GENERATION:\n"
+            "1. NEVER copy literal instruction text mapping like '(e.g. Paid vs Free)'. You MUST intelligently generate clean, professional headers natively tailored to the domain.\n"
+            "2. ADAPT TO DOMAIN: If it's a TRAVEL task, focus ONLY on logistics, travel costs, and hotels. IF AND ONLY IF it is a SKILL/EDUCATION task, you must provide career predictions (e.g. 'Where user will be in 4 years'). DO NOT put career/multi-year predictions into travel trip plans!\n"
+            "3. DO NOT abruptly stop in the middle of a sentence.\n\n"
+            "You MUST structure your response into these exact sequential sections, generating your own elegant, contextual headers using emojis:\n\n"
+            "## 🎯 Final Execution Plan\n"
+            "**[Generate a contextual Title for Core Focus]**\n"
+            "- Detail the core objective and deep domain analysis here.\n\n"
+            "**[Generate a contextual Title for the Action Pipeline/Implementation]**\n"
+            "- IF CODE IS NEEDED: State the target language. Then output production-ready code fully enclosed within triple backticks (e.g. ```python ... ```).\n"
+            "- IF NO CODE: Provide actionable stages, timelines, and execution steps.\n\n"
+            "**[Generate a contextual Title for Assets/Resources]**\n"
+            "- Detail exact required items (e.g., specific hotels, tools, or courses). Contrast free vs paid options if appropriate.\n\n"
+            "**[Generate a contextual Title for Supporting Tasks]**\n"
+            "- List secondary daily commitments or minor activities.\n\n"
+            "## 💰 Total Estimated Cost & Resources\n"
+            "- MUST be a proper Markdown table with 'Item' and 'Cost/Time' columns. Include Total at the bottom.\n\n"
+            "## 🧠 Internal Reasoning & Validation\n"
+            "- If you detect constraints are likely exceeded (e.g. over budget), simulate a Self-Correction.\n"
+            "  - Example: `> 🛑 **Constraint Check:** Budget Exceeded by $1000`\n"
+            "  - Example: `> 🔄 **Self-Correction:** Swapping luxury option for standard. Savings: $1200.`\n"
+            "  - Example: `> ✅ **New Status:** Validated.`\n\n"
+            "## ✅ Status Tracker\n"
+            "- YOU MUST CALCULATE EXPLICITLY: 'Total Budget' minus 'Total Costs' = 'Remaining buffer'\n"
+            "- ✔ Within Constraints\n"
+            "- ✔ Remaining buffer: [Insert exact calculated amount here]\n\n"
+            "## 🔄 Optimization Suggestions\n"
+            "- Suggest 3 practical ways to upgrade the plan or save money/time natively.\n\n"
+            "## 🧪 Validation Check\n"
+            "YOU MUST INCLUDE THESE EXACT 3 LINES at the very end:\n"
+            "- Constraints: **✔ satisfied**\n"
+            "- Execution feasibility: **✔ realistic**\n"
+            "- Plan completeness: **✔ valid**\n"
+        )
     
     full_prompt = f"{system_prompt}\n\n"
     
@@ -245,11 +253,11 @@ Our AI engine orchestrated the following 8-step workflow utilizing four speciali
 """
 
 
-def background_task_runner(task_id: str, prompt: str, custom_plan: list = None, context: list = None):
+def background_task_runner(task_id: str, prompt: str, custom_plan: list = None, context: list = None, mode: str = "deep"):
     """Runs in a background thread. Uses sync DB — no event loop issues."""
     sync_update_task(task_id, "running")
     try:
-        result = call_ai_sync(prompt, custom_plan, context)
+        result = call_ai_sync(prompt, custom_plan, context, mode)
         sync_update_task(task_id, "completed", result)
         print(f"[AutoWorker] Task {task_id} completed successfully.")
     except Exception as e:
@@ -340,7 +348,7 @@ async def create_task(request: AutoTaskRequest):
     # Dispatch to background thread — non-blocking
     thread = threading.Thread(
         target=background_task_runner,
-        args=(task_id, request.user_prompt, request.custom_plan, request.context),
+        args=(task_id, request.user_prompt, request.custom_plan, request.context, getattr(request, 'mode', 'deep')),
         daemon=True
     )
     thread.start()

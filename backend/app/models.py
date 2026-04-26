@@ -5,6 +5,7 @@ class AutoTaskRequest(BaseModel):
     user_prompt: str = Field(..., description="The task the user wants the AI agents to accomplish.")
     custom_plan: Optional[List[str]] = Field(None, description="The human-approved execution plan array.")
     context: Optional[List[str]] = Field(None, description="Recent task history for stateful memory.")
+    mode: Optional[str] = Field("deep", description="Execution mode: 'quick' or 'deep'")
 
 class AutoTaskResponse(BaseModel):
     task_id: str
@@ -14,6 +15,7 @@ class AutoTaskResponse(BaseModel):
 class PlanRequest(BaseModel):
     user_prompt: str
     context: Optional[List[str]] = Field(None, description="Recent task history.")
+    mode: Optional[str] = Field("deep", description="Plan generation mode")
 
 class PlanResponse(BaseModel):
     steps: List[str]
