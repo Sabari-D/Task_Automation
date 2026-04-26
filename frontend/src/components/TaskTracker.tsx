@@ -28,7 +28,7 @@ const AGENT_LOGS = [
   '[VALIDATOR_AGENT] 🔄 Feedback loop complete. Generating final output...',
 ];
 
-export default function TaskTracker({ taskId, onReset }: TaskTrackerProps) {
+export default function TaskTracker({ taskId, mode, onReset }: TaskTrackerProps) {
   const [taskState, setTaskState] = useState<TaskState>({ status: 'pending' });
   const [logs, setLogs] = useState<string[]>([]);
   const [showDownloadMenu, setShowDownloadMenu] = useState(false);
